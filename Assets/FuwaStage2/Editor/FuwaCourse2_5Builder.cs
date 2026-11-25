@@ -266,6 +266,7 @@ public static class FuwaCourse2_5Builder
         if (PitLiners) AddPitLiners();   // 2026-11-16 穴の中の影の壁（鏡の前に：中段の穴の壁もいっしょに映る）
         if (PitTeeth) foreach (var wrT in root.GetComponentsInChildren<Transform>(true).Where(t => t.name.StartsWith("WindRun")).ToList()) AddPitTeeth(wrT, "");   // 2026-11-25 穴のふちの大きいギザ（鏡の前に）
         if (MidMirror && warpAin && warpW) MirrorIsland(iw, root.InverseTransformPoint(warpAin.position), root.InverseTransformPoint(warpW.position));
+        foreach (var wrC in root.GetComponentsInChildren<Transform>(true).Where(t => t.name.StartsWith("WindRun")).ToList()) DarkenPitCuts(wrC);   // 2026-11-25 穴の断面を暗く（鏡のあと）
         HW = hwSave; pitTable = null; TileL = tileL0;
         // 2026-11-14 落とし穴の下に地面があると落ちても立ててしまうので、回廊の下の地面はなし（トンネルだけ浮いている）
         //IslandRock(iw, 1.5f, false, 3f, 180f + WebWalkOrbit);
@@ -1176,7 +1177,73 @@ public static class FuwaCourse2_5Builder
     //  山には乗れる（当たりの MeshCollider、道と同じレイヤー）。WindRun ごとに PitTeeth（石）・PitTeethWall（壁）・PitTeethCol（当たり）
     public static bool PitTeeth = true;
     public static bool TeethDarkSides = false;   // ギザの横の面を穴の壁の暗いグラデにするか（2026-11-25 てじゃ「近くの色とそろえたい」→ false：タイルと同じ石）
-    public static bool PitLinerWalls = false;   // 穴の内がわの暗い壁（PitLiner）。2026-11-25 やめた
+    public static bool PitLinerWalls = false;
+    // 穴の断面（穴に面したタイルの横の面・ギザの横の面）だけ、その石の色を暗くした材質（〇〇_Cut）に。1 なら暗くしない
+    public static float PitCutDark = 0.72f;
+    static Material CutMat(Material src)
+    {
+        if (!src) return src;
+        string path = "Assets/FuwaStage2/Materials/" + src.name + "_Cut.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (!m) { m = new Material(src); AssetDatabase.CreateAsset(m, path); }
+        else { m.shader = src.shader; m.CopyPropertiesFromMaterial(src); }
+        foreach (var prop in new[] { "_Color", "_UnderColor" })
+            if (m.HasProperty(prop)) { var c0 = src.GetColor(prop); m.SetColor(prop, new Color(c0.r * PitCutDark, c0.g * PitCutDark, c0.b * PitCutDark, c0.a)); }
+        EditorUtility.SetDirty(m);
+        return m;
+    }
+    // 道の見た目（TilesBevel）から、穴に面した横の面だけを取り出して「TilesCut」（暗い石）にうつす。もう TilesCut があればやらない
+    static int DarkenPitCuts(Transform wr)
+    {
+        if (PitCutDark >= 1f || wr.Find("TilesCut")) return 0;
+        var tiles = wr.Cast<Transform>().Where(t => t.name == "Tile").ToList(); if (tiles.Count == 0) return 0;
+        float minX = tiles.Min(t => t.localPosition.x - t.localScale.x / 2f), maxX = tiles.Max(t => t.localPosition.x + t.localScale.x / 2f);
+        float minZ = tiles.Min(t => t.localPosition.z - t.localScale.z / 2f), maxZ = tiles.Max(t => t.localPosition.z + t.localScale.z / 2f);
+        bool Inside(float x, float z) { foreach (var t in tiles) { var p = t.localPosition; var s = t.localScale; if (Mathf.Abs(x - p.x) < s.x / 2f && Mathf.Abs(z - p.z) < s.z / 2f) return true; } return false; }
+        bool IsPit(Vector3 q) => q.x > minX + 0.01f && q.x < maxX - 0.01f && q.z > minZ + 0.01f && q.z < maxZ - 0.01f && !Inside(q.x, q.z);
+        int moved = 0, k = 0;
+        foreach (var bt in wr.Cast<Transform>().Where(x => x.name == "TilesBevel").ToList())
+        {
+            var mf = bt.GetComponent<MeshFilter>(); var mr = bt.GetComponent<MeshRenderer>(); if (!mf || !mr || !mf.sharedMesh) continue;
+            var mesh = mf.sharedMesh; var vs = mesh.vertices; var tr = mesh.triangles;
+            var keepV = new List<Vector3>(); var keepT = new List<int>(); var cutV = new List<Vector3>(); var cutT = new List<int>();
+            for (int i = 0; i < tr.Length; i += 3)
+            {
+                Vector3 a = vs[tr[i]], b = vs[tr[i + 1]], c = vs[tr[i + 2]];
+                var n = Vector3.Cross(b - a, c - a); bool cut = false;
+                if (n.sqrMagnitude > 1e-10f)
+                {
+                    n.Normalize();
+                    if (Mathf.Abs(n.y) < 0.2f)
+                    {
+                        var ctr = (a + b + c) / 3f; var nh = new Vector3(n.x, 0f, n.z).normalized;
+                        var q = wr.InverseTransformPoint(bt.TransformPoint(ctr + nh * 0.06f));
+                        cut = IsPit(q);
+                    }
+                }
+                var LV = cut ? cutV : keepV; var LT = cut ? cutT : keepT;
+                int j = LV.Count; LV.Add(a); LV.Add(b); LV.Add(c); LT.Add(j); LT.Add(j + 1); LT.Add(j + 2);
+            }
+            if (cutV.Count == 0) continue;
+            mesh.Clear(false); mesh.SetVertices(keepV); mesh.SetTriangles(keepT, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds(); EditorUtility.SetDirty(mesh);
+            string bn = mesh.name.EndsWith("_Mir") ? mesh.name.Substring(0, mesh.name.Length - 4) + "_Cut_Mir" : mesh.name + "_Cut";
+            var cmesh = SaveMesh(bn, cutV, cutT);
+            var g = MeshObj(wr, "TilesCut", cmesh, CutMat(mr.sharedMaterial), Vector3.zero, bt.gameObject.layer, true);
+            g.transform.localPosition = bt.localPosition; g.transform.localRotation = bt.localRotation; g.transform.localScale = bt.localScale; g.isStatic = true;
+            moved += cutV.Count / 3; k++;
+        }
+        return moved;
+    }
+    [MenuItem("FuwaCourse/ステージ2/2–5 穴の断面を暗くする（今のシーン）")]
+    public static void DarkenPitCutsMenu()
+    {
+        var r0 = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().FirstOrDefault(g => g.name == RootName); if (!r0) return;
+        root = r0.transform;
+        pathA = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Course2_5_PathA.mat"); pathB = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Course2_5_PathB.mat");
+        int n = 0; foreach (var wr in root.GetComponentsInChildren<Transform>(true).Where(t => t.name.StartsWith("WindRun")).ToList()) n += DarkenPitCuts(wr);
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
+        Debug.Log("[2–5] 穴の断面を暗く：三角形 " + n);
+    }   // 穴の内がわの暗い壁（PitLiner）。2026-11-25 やめた
     public static Vector2 TeethD = new Vector2(0.16f, 0.3f);    // 山の高さ（穴のほうへ出る長さ）
     public static Vector2 TeethBase = new Vector2(0.6f, 0.9f);  // 山の根元の幅（辺をわけた1区画に対する割合）
     public static float TeethTwoAt = 1.3f;                       // 穴に面した区間がこれより長ければ 2 個にすることがある
@@ -1199,6 +1266,7 @@ public static class FuwaCourse2_5Builder
         bool Inside(float x, float z) { foreach (var t in tiles) { var p = t.localPosition; var s = t.localScale; if (Mathf.Abs(x - p.x) < s.x / 2f && Mathf.Abs(z - p.z) < s.z / 2f) return true; } return false; }
         bool IsPit(float x, float z) => x > minX + 0.01f && x < maxX - 0.01f && z > minZ + 0.01f && z < maxZ - 0.01f && !Inside(x, z);
         var sv = new Dictionary<Material, List<Vector3>>(); var st = new Dictionary<Material, List<int>>();
+        var cvv = new Dictionary<Material, List<Vector3>>(); var ctt = new Dictionary<Material, List<int>>();   // 断面（横の面・底）は暗い石（CutMat）
         var wv = new List<Vector3>(); var wc = new List<Color>(); var wt = new List<int>();
         var cv = new List<Vector3>(); var ct = new List<int>();
         float h = PitBevel; int teeth = 0;
@@ -1287,9 +1355,12 @@ public static class FuwaCourse2_5Builder
                 }
                 else
                 {   // 2026-11-25 てじゃ「ギザも近くの色とそろえたいな」→ 横の面・底も、となりのタイルと同じ石（同じマテリアル）
-                    Tri(V, T, Y(P0, yt - h), Y(A, yt - h), Y(A, yb), n0); Tri(V, T, Y(P0, yt - h), Y(A, yb), Y(P0, yb), n0);
-                    Tri(V, T, Y(A, yt - h), Y(P1, yt - h), Y(P1, yb), n1); Tri(V, T, Y(A, yt - h), Y(P1, yb), Y(A, yb), n1);
-                    Tri(V, T, Y(P0, yb), Y(P1, yb), Y(A, yb), Vector3.down);
+                    var cm = PitCutDark < 1f ? CutMat(mat) : mat;   // 2026-11-25 てじゃ「開いた穴の断面だけを暗くしたい、色も断面にあわせつつ」
+                    if (!cvv.ContainsKey(cm)) { cvv[cm] = new List<Vector3>(); ctt[cm] = new List<int>(); }
+                    var CV = cvv[cm]; var CT = ctt[cm];
+                    Tri(CV, CT, Y(P0, yt - h), Y(A, yt - h), Y(A, yb), n0); Tri(CV, CT, Y(P0, yt - h), Y(A, yb), Y(P0, yb), n0);
+                    Tri(CV, CT, Y(A, yt - h), Y(P1, yt - h), Y(P1, yb), n1); Tri(CV, CT, Y(A, yt - h), Y(P1, yb), Y(A, yb), n1);
+                    Tri(CV, CT, Y(P0, yb), Y(P1, yb), Y(A, yb), Vector3.down);
                 }
                 Vector3 Q0 = P0 - n * 0.05f, Q1 = P1 - n * 0.05f;
                 Tri(cv, ct, Y(Q0, yt), Y(Q1, yt), Y(A, yt), Vector3.up); Tri(cv, ct, Y(Q0, yb), Y(Q1, yb), Y(A, yb), Vector3.down);
@@ -1302,6 +1373,7 @@ public static class FuwaCourse2_5Builder
         if (teeth == 0) return;
         int mi = 0; string bn = "PitTeeth_" + wr.parent.name + "_" + wr.name;
         foreach (var kv in sv) if (kv.Value.Count > 0) { var g = MeshObj(wr, "PitTeeth", SaveMesh(bn + "_" + (mi++) + suffix, kv.Value, st[kv.Key]), kv.Key, Vector3.zero, 0, true); g.isStatic = true; }
+        foreach (var kv in cvv) if (kv.Value.Count > 0) { var g = MeshObj(wr, "PitTeethCut", SaveMesh(bn + "_Cut" + (mi++) + suffix, kv.Value, ctt[kv.Key]), kv.Key, Vector3.zero, 0, true); g.isStatic = true; }
         if (wv.Count > 0)
         {
             string mp = MeshDir + "/" + bn + "_Wall" + suffix + ".asset";
