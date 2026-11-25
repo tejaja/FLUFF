@@ -386,51 +386,16 @@ public static class FuwaTutorialChallenge
         //  見た目は BayBarrier（ふわふわを割る壁）と同じ材質の板を、くり抜く前／扉の形にくり抜いた後の2枚。BayBarrier の板は見えなくする（当たりはそのまま＝扉の所もふわふわは割れる）
         Vector3 back = -fr.f;
         var gate = new GameObject("Gate").transform; gate.SetParent(root, false); gate.position = nb.position; gate.rotation = nb.rotation;
-        var nbR = nb.GetComponent<Renderer>(); var wallMat = nbR.sharedMaterial;
+        var nbR = nb.GetComponent<Renderer>();
         Undo.RecordObject(nbR, "hide"); nbR.enabled = false;
-        // 扉：道のまん中に、はば DoorW・高さ DoorH（板のローカル座標で）
+        // 扉：道のまん中に、はば DoorW・高さ DoorH
         float sx = nb.lossyScale.x, sy = nb.lossyScale.y;
         var fg = fr; fg.c = new Vector3(nb.position.x, fr.top, nb.position.z);
         var fgc = FrameAt(fg, 0f);
-        float dc = Vector3.Dot(fgc.c - nb.position, nb.right) / sx;
-        float dl = dc - DoorW * 0.5f / sx, dr = dc + DoorW * 0.5f / sx, dt = -0.5f + (fgc.top + DoorH - (nb.position.y - sy * 0.5f)) / sy;
-        GameObject Panel(string n, Mesh m)
-        {
-            var g = new GameObject(n); g.transform.SetParent(gate, false); g.transform.localScale = nb.localScale;
-            g.AddComponent<MeshFilter>().sharedMesh = m;
-            var r = g.AddComponent<MeshRenderer>(); r.sharedMaterial = wallMat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
-            return g;
-        }
-        var solid = Panel("Solid", nb.GetComponent<MeshFilter>().sharedMesh);
-        var door = Panel("Door", SaveMesh(DoorMeshArch(dl, dr, dt, sx, sy), "Tutorial_GateDoor_" + bay.name));
-        // 扉のふち（2026-11-24 てじゃ「開いた扉のフチをちょっと強調」）：くり抜いた穴の内がわにそって明るい細い帯（板と重ならないので Z ファイトなし）。扉といっしょに出る
-        {
-            float wx = DoorEdge / sx, wy = DoorEdge / sy;
-            var fm = new Mesh(); var V = new List<Vector3>(); var C = new List<Color>(); var T = new List<int>();
-            void R(float x0, float y0, float x1, float y1)
-            {
-                int k = V.Count; V.Add(new Vector3(x0, y0, 0)); V.Add(new Vector3(x1, y0, 0)); V.Add(new Vector3(x1, y1, 0)); V.Add(new Vector3(x0, y1, 0));
-                for (int q = 0; q < 4; q++) C.Add(DoorEdgeCol);
-                T.AddRange(new[] { k, k + 1, k + 2, k, k + 2, k + 3 });
-            }
-            // 上は ∩ の半円（ワールドで丸く。板は横 sx・縦 sy に引きのばされているので、ローカルでは楕円）
-            float rw = (dr - dl) * 0.5f, xc = (dl + dr) * 0.5f, rh = rw * sx / sy, yc = dt - rh;
-            R(dl, -0.5f, dl + wx, yc); R(dr - wx, -0.5f, dr, yc);
-            const int AN = 24;
-            for (int i = 0; i < AN; i++)
-            {
-                float a0 = Mathf.PI * i / AN, a1 = Mathf.PI * (i + 1) / AN;
-                Vector3 o0 = new Vector3(xc + Mathf.Cos(a0) * rw, yc + Mathf.Sin(a0) * rh, 0), o1 = new Vector3(xc + Mathf.Cos(a1) * rw, yc + Mathf.Sin(a1) * rh, 0);
-                Vector3 i0 = new Vector3(xc + Mathf.Cos(a0) * (rw - wx), yc + Mathf.Sin(a0) * (rh - wy), 0), i1 = new Vector3(xc + Mathf.Cos(a1) * (rw - wx), yc + Mathf.Sin(a1) * (rh - wy), 0);
-                int k = V.Count; V.Add(o0); V.Add(o1); V.Add(i1); V.Add(i0); for (int q = 0; q < 4; q++) C.Add(DoorEdgeCol);
-                T.AddRange(new[] { k, k + 1, k + 2, k, k + 2, k + 3 });
-            }
-            fm.SetVertices(V); fm.SetColors(C); fm.SetTriangles(T, 0); fm.RecalculateNormals(); fm.RecalculateBounds();
-            var fg2 = new GameObject("DoorEdge"); fg2.transform.SetParent(door.transform, false);
-            fg2.AddComponent<MeshFilter>().sharedMesh = SaveMesh(fm, "Tutorial_GateDoorEdge_" + bay.name);
-            var fr2 = fg2.AddComponent<MeshRenderer>(); fr2.sharedMaterial = AssetDatabase.GetBuiltinExtraResource<Material>("Sprites-Default.mat");
-            fr2.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; fr2.receiveShadows = false;
-        }
+        // 壁は道の高さを中心にした大きな円（2026-11-25 てじゃ「壁、デカイ円にしよう」「コース下まで貫通」）。ふわふわを割る当たり（BayBarrier の箱）がすっぽり入る大きさ
+        float cxL = Vector3.Dot(fgc.c - nb.position, nb.right), floorL = fgc.top - nb.position.y;
+        var (solid, door, plug) = MakeDiscGate(gate, bay.name, cxL, floorL, sx, sy);
+        FitBarrier(nb, cxL, floorL);
         var doorFx = MakeSparkle(gate); doorFx.transform.position = fgc.c + Vector3.up * (DoorH * 0.5f); doorFx.transform.rotation = Quaternion.LookRotation(fr.f);
         var block = new GameObject("PlayerBlock"); block.transform.SetParent(gate, false); block.layer = 0;
         var bc = block.AddComponent<BoxCollider>(); bc.size = new Vector3(nb.localScale.x, nb.localScale.y, 0.3f);
@@ -471,6 +436,7 @@ public static class FuwaTutorialChallenge
         goal.clearFx = fx; goal.sfxClear = sClear; goal.gateBlock = block; goal.gateSolid = solid; goal.gateDoor = door; goal.doorFx = doorFx; goal.sfxOpen = sOpen;
         goal.arrows = arrows.gameObject; goal.arrowsHideAt = nextSign; goal.arrowsHideDist = 3f; goal.arrowRenderers = arrowRs.ToArray(); goal.arrowDim = amat; goal.arrowLit = amatLit;
         goal.clearMark = stamp.gameObject; goal.hint = hint.gameObject;
+        goal.gatePlug = plug.GetComponent<Renderer>(); goal.doorEdge = door.transform.Find("DoorEdge").GetComponent<Renderer>();
         UdonSharpEditorUtility.CopyProxyToUdon(goal);
         stamp.gameObject.SetActive(false); hint.gameObject.SetActive(false); door.SetActive(false); arrows.gameObject.SetActive(false);
         // チュートリアルから出たら戻す
@@ -527,6 +493,150 @@ public static class FuwaTutorialChallenge
         }
         var m = new Mesh(); m.SetVertices(V); m.SetUVs(0, U); m.SetTriangles(T, 0); m.RecalculateNormals(); m.RecalculateBounds();
         return m;
+    }
+    // ===== 課題の壁：大きな円（2026-11-25 てじゃ「壁、デカイ円にしよう　今よりちょっと大きくなってもいいかも」「コース下まで貫通してて」）=====
+    //  gate のローカル（m、拡大なし）で作る。cx：扉のまん中の横位置、floorY：道の上面の高さ、sx/sy：ふわふわを割る当たり（BayBarrier の箱）の大きさ
+    //  ・Solid：くり抜く前の円　・Door：扉の形（∩）にくり抜いた円＋ふちの白い帯（DoorEdge）　・DoorPlug：扉の形の板（開く時にふわっと消す）
+    //  uv0 = (x - cx, y - floorY) m、uv1 = (円の半径, 円の中心の高さ - floorY)。シェーダーは FuwaCourse/LightDisc
+    public static float DiscR = 6f;   // 円の半径 m（今までの板ははば10m・高さ4.2m）
+    static (GameObject solid, GameObject door, GameObject plug) MakeDiscGate(Transform gate, string bayName, float cx, float floorY, float sx, float sy)
+    {
+        foreach (var nm in new[] { "Solid", "Door", "DoorPlug" }) { var o = gate.Find(nm); if (o) Object.DestroyImmediate(o.gameObject); }
+        var mat = DiscMat();
+        float top = sy * 0.5f;
+        float R = DiscR;
+        Vector2 C = new Vector2(cx, floorY);
+        float rw = DoorW * 0.5f, dl = cx - rw, dr = cx + rw, yc = floorY + DoorH - rw, hb = floorY - 0.1f;   // 扉の下は道の上面より少し下から
+        Vector2 P = new Vector2(cx, (hb + yc) * 0.5f);
+        bool InHole(Vector2 q) => q.x >= dl && q.x <= dr && q.y >= hb && (q.y <= yc || (q - new Vector2(cx, yc)).sqrMagnitude <= rw * rw);
+        const int N = 192;
+        var hole = new Vector2[N]; var rim = new Vector2[N];
+        for (int i = 0; i < N; i++)
+        {
+            float a = Mathf.PI * 2f * i / N; var d = new Vector2(Mathf.Cos(a), Mathf.Sin(a));
+            float lo = 0f, hi = 6f; for (int k = 0; k < 40; k++) { float mid = (lo + hi) * 0.5f; if (InHole(P + d * mid)) lo = mid; else hi = mid; }
+            hole[i] = P + d * lo;
+            Vector2 pc = P - C; float b = Vector2.Dot(d, pc), c = pc.sqrMagnitude - R * R;
+            rim[i] = P + d * (-b + Mathf.Sqrt(b * b - c));
+        }
+        Mesh Make(List<Vector2> pts, List<int> tris, List<Color> cols = null)
+        {
+            var m = new Mesh();
+            m.SetVertices(pts.Select(p => new Vector3(p.x, p.y, 0f)).ToList());
+            m.SetUVs(0, pts.Select(p => new Vector2(p.x - cx, p.y - floorY)).ToList());
+            m.SetUVs(1, pts.Select(p => new Vector2(R, 0f)).ToList());
+            if (cols != null) m.SetColors(cols);
+            var both = new List<int>(tris); for (int t = 0; t < tris.Count; t += 3) { both.Add(tris[t]); both.Add(tris[t + 2]); both.Add(tris[t + 1]); }   // 両面
+            m.SetTriangles(both, 0); m.RecalculateNormals(); m.RecalculateBounds();
+            return m;
+        }
+        GameObject Obj(string n, Mesh m, Material mt, Transform parent)
+        {
+            var g = new GameObject(n); g.transform.SetParent(parent, false);
+            g.AddComponent<MeshFilter>().sharedMesh = m;
+            var r = g.AddComponent<MeshRenderer>(); r.sharedMaterial = mt; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+            return g;
+        }
+        // くり抜く前：円
+        var sp = new List<Vector2> { C }; var st = new List<int>();
+        for (int i = 0; i < N; i++) { float a = Mathf.PI * 2f * i / N; sp.Add(C + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * R); }
+        for (int i = 0; i < N; i++) st.AddRange(new[] { 0, 1 + i, 1 + (i + 1) % N });
+        var solid = Obj("Solid", SaveMesh(Make(sp, st), "Tutorial_GateDisc_" + bayName), mat, gate);
+        // くり抜いた後：扉の穴のふち〜円のふち
+        var dp = new List<Vector2>(); var dtr = new List<int>();
+        for (int i = 0; i < N; i++) { dp.Add(hole[i]); dp.Add(rim[i]); }
+        for (int i = 0; i < N; i++) { int j = (i + 1) % N; dtr.AddRange(new[] { 2 * i, 2 * i + 1, 2 * j + 1, 2 * i, 2 * j + 1, 2 * j }); }
+        var door = Obj("Door", SaveMesh(Make(dp, dtr), "Tutorial_GateDoor_" + bayName), mat, gate);
+        // 扉の板
+        var pp = new List<Vector2> { P }; var pt = new List<int>();
+        for (int i = 0; i < N; i++) pp.Add(hole[i]);
+        for (int i = 0; i < N; i++) pt.AddRange(new[] { 0, 1 + i, 1 + (i + 1) % N });
+        var plug = Obj("DoorPlug", SaveMesh(Make(pp, pt), "Tutorial_GateDoorPlug_" + bayName), mat, gate);
+        plug.SetActive(false);
+        // ふちの白い帯（2026-11-24 てじゃ「開いた扉のフチをちょっと強調」）：穴の内がわ、左右と ∩ の上
+        {
+            float w = DoorEdge; var V = new List<Vector2>(); var T = new List<int>(); var Cc = new List<Color>();
+            void Q(Vector2 a, Vector2 b, Vector2 c2, Vector2 d) { int k = V.Count; V.Add(a); V.Add(b); V.Add(c2); V.Add(d); for (int q = 0; q < 4; q++) Cc.Add(DoorEdgeCol); T.AddRange(new[] { k, k + 1, k + 2, k, k + 2, k + 3 }); }
+            Q(new Vector2(dl, hb), new Vector2(dl + w, hb), new Vector2(dl + w, yc), new Vector2(dl, yc));
+            Q(new Vector2(dr - w, hb), new Vector2(dr, hb), new Vector2(dr, yc), new Vector2(dr - w, yc));
+            const int AN = 32; var ac = new Vector2(cx, yc);
+            for (int i = 0; i < AN; i++)
+            {
+                float a0 = Mathf.PI * i / AN, a1 = Mathf.PI * (i + 1) / AN;
+                Vector2 u0 = new Vector2(Mathf.Cos(a0), Mathf.Sin(a0)), u1 = new Vector2(Mathf.Cos(a1), Mathf.Sin(a1));
+                Q(ac + u0 * rw, ac + u1 * rw, ac + u1 * (rw - w), ac + u0 * (rw - w));
+            }
+            Obj("DoorEdge", SaveMesh(Make(V, T, Cc), "Tutorial_GateDoorEdge_" + bayName), AssetDatabase.GetBuiltinExtraResource<Material>("Sprites-Default.mat"), door.transform);
+        }
+        return (solid, door, plug);
+    }
+    // ふわふわを割る当たり（BayBarrier の箱）を円に合わせる：道から上を3段の箱で円の内がわに（段の上の高さで円に入る幅）
+    //  ※ FuwaPracticeTutorial の作り直しで BayBarrier が作り直されたら、これ（か「壁を大きな円にする」）をもう一度
+    static void FitBarrier(Transform nb, float cx, float floorY)
+    {
+        if (nb == null) return;
+        var cols = nb.GetComponents<BoxCollider>().ToList();
+        while (cols.Count < 3) cols.Add(Undo.AddComponent<BoxCollider>(nb.gameObject));
+        for (int i = 3; i < cols.Count; i++) Undo.DestroyObjectImmediate(cols[i]);
+        float sx = nb.lossyScale.x, sy = nb.lossyScale.y, th = cols[0].size.z, R = DiscR;
+        float[] tops = { R / 3f, R * 2f / 3f, R * 0.9f };
+        float y0 = floorY - 0.3f;
+        for (int i = 0; i < 3; i++)
+        {
+            float y1 = floorY + tops[i], hw = Mathf.Sqrt(R * R - tops[i] * tops[i]);
+            Undo.RecordObject(cols[i], "fit");
+            cols[i].isTrigger = false;
+            cols[i].size = new Vector3(hw * 2f / sx, (y1 - y0) / sy, th);
+            cols[i].center = new Vector3(cx / sx, (y0 + y1) * 0.5f / sy, 0f);
+            y0 = y1;
+        }
+    }
+    static Material DiscMat()
+    {
+        string path = "Assets/FuwaCourse/Materials/TutorialLightDisc.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (!m)
+        {
+            m = new Material(Shader.Find("FuwaCourse/LightDisc"));
+            var src = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/TutorialLightPanel.mat");
+            if (src) foreach (var p in new[] { "_Alpha", "_Height", "_LineAlpha", "_BandAlpha", "_BandSpeed", "_BandGap", "_FadeNear", "_FadeFar" }) if (src.HasProperty(p)) m.SetFloat(p, src.GetFloat(p));
+            if (src) m.SetColor("_Color", src.GetColor("_Color"));
+            m.enableInstancing = true;
+            AssetDatabase.CreateAsset(m, path);
+        }
+        return m;
+    }
+    // 今のシーンの課題の壁を円にする（作り直さずに。PlayerBlock＝板の大きさと、扉のふちの帯の位置から作る）
+    [MenuItem("FuwaCourse/れんしゅう/課題：壁を大きな円にする（今のシーンに）")]
+    public static void DiscGatesMenu() { Debug.Log(DiscGates()); }
+    public static string DiscGates()
+    {
+        int n = 0; var sb = new System.Text.StringBuilder();
+        foreach (var goal in Object.FindObjectsOfType<FuwaTutorialGoal>(true))
+        {
+            if (goal.gateDoor == null) continue;
+            var gate = goal.gateDoor.transform.parent;
+            var bc = gate.Find("PlayerBlock").GetComponent<BoxCollider>();   // 大きさ＝ BayBarrier の板の大きさ
+            float sx = bc.size.x, sy = bc.size.y;
+            var bayName = goal.transform.parent.parent.name;
+            // 扉のまん中＝ふちの帯のまん中、道の上面＝その真下の一番上の面
+            var oldEdge = goal.gateDoor.transform.Find("DoorEdge");
+            bool wasOn = goal.gateDoor.activeSelf; goal.gateDoor.SetActive(true);
+            Vector3 dcW = oldEdge.GetComponent<Renderer>().bounds.center;
+            goal.gateDoor.SetActive(wasOn);
+            float cxL = Vector3.Dot(dcW - gate.position, gate.right);
+            float floorL = GroundAt(dcW).y - gate.position.y;
+            var (solid, door, plug) = MakeDiscGate(gate, bayName, cxL, floorL, sx, sy);
+            var nb = Object.FindObjectsOfType<FuwaPopWall>(true).Select(w => w.transform).FirstOrDefault(t => (t.position - gate.position).sqrMagnitude < 0.0001f);
+            FitBarrier(nb, cxL, floorL);
+            sb.Append(nb ? "" : " (当たり見つからず)");
+            solid.SetActive(true); door.SetActive(false);
+            goal.gateSolid = solid; goal.gateDoor = door; goal.gatePlug = plug.GetComponent<Renderer>(); goal.doorEdge = door.transform.Find("DoorEdge").GetComponent<Renderer>();
+            UdonSharpEditorUtility.CopyProxyToUdon(goal); EditorUtility.SetDirty(goal); n++;
+            sb.Append($" {bayName}(cx {cxL:F2} floor {floorL:F2} 板 {sx:F1}x{sy:F1})");
+        }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+        return "[課題] 壁を円に " + n + sb;
     }
     // 地面の矢印（前向きの△、平ら、+z が前。2026-11-24 てじゃ「矢印を△に」「先端をちょっぴりだけ丸く」）
     public static float ArrowW = 0.42f, ArrowD = 0.55f, ArrowTipR = 0.07f;
@@ -731,7 +841,7 @@ public static class FuwaTutorialChallenge
         var ex = AssetDatabase.LoadAssetAtPath<Mesh>(path);
         if (ex == null) { AssetDatabase.CreateAsset(m, path); return m; }
         ex.Clear(false); ex.SetVertices(m.vertices); if (m.normals.Length > 0) ex.SetNormals(m.normals);
-        if (m.uv.Length > 0) ex.uv = m.uv; if (m.colors.Length > 0) ex.colors = m.colors;
+        if (m.uv.Length > 0) ex.uv = m.uv; if (m.uv2.Length > 0) ex.uv2 = m.uv2; if (m.colors.Length > 0) ex.colors = m.colors;
         ex.SetTriangles(m.triangles, 0); ex.RecalculateBounds();
         if (m.normals.Length == 0) ex.RecalculateNormals();
         EditorUtility.SetDirty(ex); return ex;

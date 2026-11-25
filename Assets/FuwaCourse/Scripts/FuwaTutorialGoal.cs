@@ -28,6 +28,14 @@ public class FuwaTutorialGoal : UdonSharpBehaviour
     public GameObject gateDoor;      // 見た目：扉の形にくり抜いた後
     public ParticleSystem doorFx;    // くり抜いた時のぽふっ
     public AudioSource sfxOpen;
+    [Header("扉がふわっと開く（2026-11-25 てじゃ「一瞬でぱっと開くけど、もっとフワっと」）")]
+    [Tooltip("扉の形の板（壁と同じ材質）。開く時だけ出して、少し明るくなってから溶けるように消す")]
+    public Renderer gatePlug;
+    [Tooltip("扉のふちの白い帯。板が消えるのに合わせてじわっと出す")]
+    public Renderer doorEdge;
+    public float openTime = 1.2f;
+    public float openGlowTime = 0.25f;
+    public float openGlow = 1.8f;
     [Header("地面の矢印")]
     public GameObject arrows;
     [Tooltip("ここ（次の看板）に近づいたら矢印を消す")]
@@ -53,9 +61,49 @@ public class FuwaTutorialGoal : UdonSharpBehaviour
     private int _failBase = -1;
     private float _time;
 
+    private float _openT = -1f;
+    private MaterialPropertyBlock _mpb;
+    private float _plugA, _plugL, _plugB;
+
     private void Start()
     {
+        _mpb = new MaterialPropertyBlock();
+        if (gatePlug != null && gatePlug.sharedMaterial != null)
+        {
+            Material pm = gatePlug.sharedMaterial;
+            _plugA = pm.GetFloat("_Alpha"); _plugL = pm.GetFloat("_LineAlpha"); _plugB = pm.GetFloat("_BandAlpha");
+        }
         ApplyIdle();
+    }
+
+    // 扉の板：はじめ openGlowTime 秒で少し明るく（ふわっ）→ 残りでなめらかに消える。ふちの帯は後半でじわっと出る
+    private void AnimOpen()
+    {
+        float t = _openT;
+        float k, e;
+        if (t < openGlowTime) { float u = t / Mathf.Max(0.01f, openGlowTime); u = u * u * (3f - 2f * u); k = Mathf.Lerp(1f, openGlow, u); }
+        else { float u = Mathf.Clamp01((t - openGlowTime) / Mathf.Max(0.01f, openTime - openGlowTime)); u = u * u * (3f - 2f * u); k = openGlow * (1f - u); }
+        { float u = Mathf.Clamp01((t - openTime * 0.3f) / Mathf.Max(0.01f, openTime * 0.7f)); e = u * u * (3f - 2f * u); }
+        if (gatePlug != null)
+        {
+            _mpb.Clear();
+            _mpb.SetFloat("_Alpha", Mathf.Min(1f, _plugA * k)); _mpb.SetFloat("_LineAlpha", Mathf.Min(1f, _plugL * k)); _mpb.SetFloat("_BandAlpha", Mathf.Min(1f, _plugB * k));
+            gatePlug.SetPropertyBlock(_mpb);
+        }
+        SetEdge(e);
+        if (t >= openTime)
+        {
+            _openT = -1f;
+            if (gatePlug != null) gatePlug.gameObject.SetActive(false);
+            SetEdge(1f);
+        }
+    }
+
+    private void SetEdge(float a)
+    {
+        if (doorEdge == null) return;
+        _mpb.Clear(); _mpb.SetColor("_Color", new Color(1f, 1f, 1f, a));
+        doorEdge.SetPropertyBlock(_mpb);
     }
 
     // 人を止める壁にふわふわは当たらない（跳ね返らずに、奥のふわふわを割る壁で消える。2026-11-24 てじゃ「壁、反射なしでクリア前も消滅」）
@@ -77,6 +125,9 @@ public class FuwaTutorialGoal : UdonSharpBehaviour
         if (gateBlock != null) gateBlock.SetActive(true);
         if (gateSolid != null) gateSolid.SetActive(true);
         if (gateDoor != null) gateDoor.SetActive(false);
+        if (gatePlug != null) gatePlug.gameObject.SetActive(false);
+        _openT = -1f;
+        SetEdge(1f);
         if (arrows != null) arrows.SetActive(false);
     }
 
@@ -88,6 +139,7 @@ public class FuwaTutorialGoal : UdonSharpBehaviour
 
     private void Update()
     {
+        if (_openT >= 0f) { _openT += Time.deltaTime; AnimOpen(); }
         if (arrows != null && arrows.activeSelf && arrowRenderers != null && arrowRenderers.Length > 0 && arrowLit != null)
         {
             int n = arrowRenderers.Length;
@@ -139,6 +191,7 @@ public class FuwaTutorialGoal : UdonSharpBehaviour
         if (gateBlock != null) gateBlock.SetActive(false);
         if (gateSolid != null) gateSolid.SetActive(false);
         if (gateDoor != null) gateDoor.SetActive(true);
+        if (gatePlug != null) { gatePlug.gameObject.SetActive(true); _openT = 0f; AnimOpen(); }
         if (doorFx != null) doorFx.Play();
         if (arrows != null) arrows.SetActive(true);
         if (sfxOpen != null) sfxOpen.Play();
