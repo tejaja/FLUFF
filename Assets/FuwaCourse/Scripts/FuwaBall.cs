@@ -1027,6 +1027,9 @@ public class FuwaBall : UdonSharpBehaviour
     public void Fail()
     {
         if (_waiting || _finished || _resetAt > 0f || _spiking) return;
+        // 2026-11-25 てじゃ「落ちて暗転してる間にふわふわがアウトになると、2回リスポンする」
+        //  → 自分が落ちた（BeginPlayerMiss/Spike）処理の途中なら、ふわふわのアウトは出さない（すぐ FinishPlayerMiss がふわふわも一緒に戻す）
+        if (_missPending) return;
         if (_running) _runOuts++;
         if (_practice) _practiceFails++;   // チュートリアルの課題：何回失敗したか（FuwaTutorialGoal がコツを出す・壁を開けるのに使う）
         float inflate = popEffect != null ? Mathf.Max(0f, inflateTime) : 0f;
@@ -1161,6 +1164,7 @@ public class FuwaBall : UdonSharpBehaviour
     private float FlatDist(Vector3 a, Vector3 b) { a.y = 0f; b.y = 0f; return Vector3.Distance(a, b); }
 
     private float _fallLockUntil;
+    private bool _missPending;   // 自分が落ちた処理の途中（暗転〜FinishPlayerMiss まで）
 
     // プレイヤーがミスした（穴に落ちた・トゲに触った）瞬間に呼ばれる。
     // メッセージと音を出して暗転し、真っ暗になったらチェックポイントへ戻す。
@@ -1168,10 +1172,19 @@ public class FuwaBall : UdonSharpBehaviour
     public bool BeginPlayerMiss(string messageJa, string messageEn)
     {
         if (Time.time < _fallLockUntil) return false;
+        // 逆の順番：ふわふわのアウトで暗転→プレイヤーも戻す途中なら、そっちにまかせて2回目の暗転・ワープはしない（落ち続けないように止めるだけ）
+        if (_resetAt > 0f && _teleportOnReset)
+        {
+            _fallLockUntil = _resetAt + 0.5f;
+            VRCPlayerApi pl = Networking.LocalPlayer;
+            if (pl != null) pl.SetVelocity(Vector3.zero);
+            return true;
+        }
         _fallLockUntil = Time.time + 1.5f;
         // ワープまでの間に落ち続けて、VRChatの「下に落ちたらスポーンへ戻す」高さ(-20)を割らないように、落ちる速さを止める
         VRCPlayerApi player = Networking.LocalPlayer;
         if (player != null) { player.SetVelocity(Vector3.zero); _missPos = player.GetPosition(); _hasMissPos = true; }
+        _missPending = true;
         ShowMessage(english ? messageEn : messageJa, 1.8f);
         PlaySfx(sfxFell);
         if (fade != null) fade.Play(0.1f, 0.3f, 0.15f, 0.35f);
@@ -1183,7 +1196,9 @@ public class FuwaBall : UdonSharpBehaviour
     public bool BeginPlayerSpike(string messageJa, string messageEn)
     {
         if (Time.time < _fallLockUntil) return false;
+        if (_resetAt > 0f && _teleportOnReset) { _fallLockUntil = _resetAt + 0.5f; return true; }   // ふわふわのアウトでもう戻す途中（2回リスポンしない）
         _fallLockUntil = Time.time + 1.7f;
+        _missPending = true;
         ShowMessage(english ? messageEn : messageJa, 2f);
         PlaySfx(sfxSpike);
         VRCPlayerApi player = Networking.LocalPlayer;
@@ -1205,6 +1220,7 @@ public class FuwaBall : UdonSharpBehaviour
 
     public void FinishPlayerMiss()
     {
+        _missPending = false;
         TeleportPlayerToRespawn();
         ResetGimmicks();
         if (_finished) return;
