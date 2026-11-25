@@ -1738,18 +1738,33 @@ public static class FuwaCourse2_2Builder
                 bool Down(Vector3 at, out Vector3 got)
                 {
                     float best = float.MaxValue; bool found = false; got = at; var ray = new Ray(new Vector3(at.x, fromY, at.z), Vector3.down);
-                    foreach (var c in temps) if (c.Raycast(ray, out var h, 4f) && h.distance < best && h.normal.y > 0.5f) { best = h.distance; got = h.point; found = true; }
+                    foreach (var c in temps) if (c.Raycast(ray, out var h, 4f) && h.distance < best && h.normal.y > 0.6f) { best = h.distance; got = h.point; found = true; }   // 道の上の平らな所だけ（ふちの丸めに乗せると、丸めの下に沈んでギザギザに見えた）
                     return found;
                 }
-                const int NR = 8, NS = 40;
+                // 2026-11-25 てじゃ「落ちる岩の予告円が端がギザギザで道の端までいってない」：
+                //  前は丸のます目の点のうち道から外れた点を捨てていたので、ふちがノコギリになって手前で止まっていた。
+                //  → 放射の線ごとに、道が終わる所（ふち）を細かく探して、その線の点を中心〜ふちに並べ直す（ふちにぴったり沿う）。UV は本当の位置（丸の模様・ぼかしはそのまま）
+                const int NR = 8, NS = 72;
                 var verts = new List<Vector3>(); var uvs = new List<Vector2>(); var idx = new List<int>(); var id = new int[NR + 1, NS];
-                for (int ri = 0; ri <= NR; ri++) for (int si = 0; si < NS; si++)
+                bool centerOk = Down(c0, out var cHit);
+                for (int si = 0; si < NS && centerOk; si++)
                 {
-                    id[ri, si] = -1; if (ri == 0 && si > 0) { id[ri, si] = id[0, 0]; continue; }
-                    float rr = ri / (float)NR, th = si * Mathf.PI * 2f / NS; var off = new Vector3(Mathf.Cos(th), 0f, Mathf.Sin(th)) * rr;
-                    if (!Down(c0 + off * RockWarnR, out var hit)) continue;
-                    id[ri, si] = verts.Count; verts.Add(g.InverseTransformPoint(hit + Vector3.up * 0.015f)); uvs.Add(new Vector2(off.x, off.z));
+                    float th = si * Mathf.PI * 2f / NS; var dir = new Vector3(Mathf.Cos(th), 0f, Mathf.Sin(th));
+                    // この線で道がどこまで続くか（0〜1、丸の半径に対して）
+                    float lastOk = 0f, firstNg = -1f;
+                    for (int st = 1; st <= 40; st++) { float rq = st / 40f; if (Down(c0 + dir * rq * RockWarnR, out _)) lastOk = rq; else { firstNg = rq; break; } }
+                    float edge = 1f;
+                    if (firstNg > 0f) { float lo = lastOk, hi = firstNg; for (int it = 0; it < 10; it++) { float m = (lo + hi) * 0.5f; if (Down(c0 + dir * m * RockWarnR, out _)) lo = m; else hi = m; } edge = lo; }
+                    for (int ri = 0; ri <= NR; ri++)
+                    {
+                        if (ri == 0 && si > 0) { id[0, si] = id[0, 0]; continue; }
+                        float rr = ri / (float)NR * edge; var off = dir * rr;
+                        Vector3 hit;
+                        if (!Down(c0 + off * RockWarnR, out hit)) { id[ri, si] = -1; continue; }
+                        id[ri, si] = verts.Count; verts.Add(g.InverseTransformPoint(hit + Vector3.up * 0.015f)); uvs.Add(new Vector2(off.x, off.z));
+                    }
                 }
+                if (!centerOk) for (int ri = 0; ri <= NR; ri++) for (int si = 0; si < NS; si++) id[ri, si] = -1;
                 void Tri(int p, int q2, int r2)
                 {
                     if (p < 0 || q2 < 0 || r2 < 0 || p == q2 || q2 == r2 || p == r2) return;
