@@ -3131,10 +3131,12 @@ public static class FuwaCourse2_5Builder
         }
         if (tA.Count > 0) MeshObj(g, "TilesEdgeA", SaveMesh("WindRun_" + tag + "_" + runNo + "_EA", tA, tAt), pathA, Vector3.zero, 0, true);
         if (tB.Count > 0) MeshObj(g, "TilesEdgeB", SaveMesh("WindRun_" + tag + "_" + runNo + "_EB", tB, tBt), pathB, Vector3.zero, 0, true);
-        foreach (float sx in new[] { -1f, 1f })
-        {
-            var rail = Box(g, "Rail", new Vector3(sx * (HW + 0.12f), P.y - 0.45f, z0 + len / 2f), new Vector3(0.24f, 0.9f, len), underM, 0); Object.DestroyImmediate(rail.GetComponent<Collider>());
-        }
+        // 2026-11-25 てじゃ「柱が側面の板にかぶってる　板いらんかもな～」「クモの巣エリアね」→ 回廊（pitTable あり＝クモの巣の列柱の中）は側面の板なし
+        if (pitTable == null)
+            foreach (float sx in new[] { -1f, 1f })
+            {
+                var rail = Box(g, "Rail", new Vector3(sx * (HW + 0.12f), P.y - 0.45f, z0 + len / 2f), new Vector3(0.24f, 0.9f, len), underM, 0); Object.DestroyImmediate(rail.GetComponent<Collider>());
+            }
         int k = 0; foreach (float a in windsAt) WindStatues(g, z0 + a, (k++) * 1.5f);
         P += Vector3.forward * len;
     }
