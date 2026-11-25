@@ -1175,6 +1175,7 @@ public static class FuwaCourse2_5Builder
     //  穴に面した辺に、穴のほうへ出っぱる三角の山を 1〜2 個（穴は大きくならない）。山の上は道と同じ石（ふちの面取りつき）、横の面は穴の壁と同じ暗いグラデ。
     //  山には乗れる（当たりの MeshCollider、道と同じレイヤー）。WindRun ごとに PitTeeth（石）・PitTeethWall（壁）・PitTeethCol（当たり）
     public static bool PitTeeth = true;
+    public static bool PitLinerWalls = false;   // 穴の内がわの暗い壁（PitLiner）。2026-11-25 やめた
     public static Vector2 TeethD = new Vector2(0.16f, 0.3f);    // 山の高さ（穴のほうへ出る長さ）
     public static Vector2 TeethBase = new Vector2(0.6f, 0.9f);  // 山の根元の幅（辺をわけた1区画に対する割合）
     public static float TeethTwoAt = 1.3f;                       // 穴に面した区間がこれより長ければ 2 個にすることがある
@@ -1535,6 +1536,8 @@ public static class FuwaCourse2_5Builder
                     }
                 }
             }
+            // 2026-11-25 てじゃ「もういらんかもね　はみ出すし」→ 穴の内がわの暗い壁はやめた（面取り BevelPitTiles とギザ AddPitTeeth は残す）
+            if (!PitLinerWalls) { var exl = wr.Find("PitLiner"); if (exl) Object.DestroyImmediate(exl.gameObject); continue; }
             if (v.Count == 0) continue;
             string mp = MeshDir + "/PitLiner_" + wr.parent.name + "_" + wr.name + ".asset";
             var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(mp);
