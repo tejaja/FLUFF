@@ -36,6 +36,12 @@ public class FuwaTutorialGoal : UdonSharpBehaviour
     public float openTime = 1.2f;
     public float openGlowTime = 0.25f;
     public float openGlow = 1.8f;
+    [Header("壁を出すタイミング（2026-11-25 てじゃ「次の壁は、前の扉くぐったあたりで出る」）")]
+    [Tooltip("次の区画の課題。この扉を人かふわふわがくぐったら、その壁をふわっと出す")]
+    public FuwaTutorialGoal nextGoal;
+    [Tooltip("最初の区画：この課題（輪）が出た時に壁も出す")]
+    public bool wallOnEnable;
+    public float wallFadeTime = 0.8f;
     [Header("地面の矢印")]
     public GameObject arrows;
     [Tooltip("ここ（次の看板）に近づいたら矢印を消す")]
@@ -65,15 +71,68 @@ public class FuwaTutorialGoal : UdonSharpBehaviour
     private MaterialPropertyBlock _mpb;
     private float _plugA, _plugL, _plugB;
 
-    private void Start()
+    private bool _inited, _wallShown, _passed;
+    private float _wallT = -1f;
+    private Vector3 _gatePos, _gateFwd;
+    private void Init()
     {
+        if (_inited) return;
+        _inited = true;
         _mpb = new MaterialPropertyBlock();
-        if (gatePlug != null && gatePlug.sharedMaterial != null)
+        Renderer src = gatePlug != null ? gatePlug : (gateSolid != null ? gateSolid.GetComponent<Renderer>() : null);
+        if (src != null && src.sharedMaterial != null)
         {
-            Material pm = gatePlug.sharedMaterial;
+            Material pm = src.sharedMaterial;
             _plugA = pm.GetFloat("_Alpha"); _plugL = pm.GetFloat("_LineAlpha"); _plugB = pm.GetFloat("_BandAlpha");
         }
+        // 扉をくぐった判定：壁の面の、次の看板がある側
+        if (gateBlock != null)
+        {
+            _gatePos = gateBlock.transform.position;
+            _gateFwd = gateBlock.transform.forward; _gateFwd.y = 0f; _gateFwd.Normalize();
+            if (arrowsHideAt != null && Vector3.Dot(arrowsHideAt.position - _gatePos, _gateFwd) < 0f) _gateFwd = -_gateFwd;
+        }
+    }
+
+    private void Start()
+    {
+        Init();
         ApplyIdle();
+    }
+
+    private void OnEnable()
+    {
+        if (wallOnEnable) ShowWall();
+    }
+
+    // 最初の区画：輪が隠れたら（チュートリアルの最初に戻った時など）壁も隠す
+    private void OnDisable()
+    {
+        if (!wallOnEnable || _opened) return;
+        _wallShown = false; _wallT = -1f;
+        if (gateSolid != null) gateSolid.SetActive(false);
+    }
+
+    // 壁をふわっと出す（前の区画の扉をくぐった時・最初の区画は輪が出た時）
+    public void ShowWall()
+    {
+        Init();
+        if (_wallShown) return;
+        _wallShown = true;
+        if (_opened) return;
+        if (gateSolid != null) gateSolid.SetActive(true);
+        _wallT = 0f; FadeWall(0f);
+    }
+
+    private void FadeWall(float k)
+    {
+        if (gateSolid == null) return;
+        Renderer r = gateSolid.GetComponent<Renderer>();
+        if (r == null) return;
+        if (k >= 1f) { _mpb.Clear(); r.SetPropertyBlock(_mpb); return; }
+        _mpb.Clear();
+        _mpb.SetFloat("_Alpha", _plugA * k); _mpb.SetFloat("_LineAlpha", _plugL * k); _mpb.SetFloat("_BandAlpha", _plugB * k);
+        r.SetPropertyBlock(_mpb);
     }
 
     // 扉の板：はじめ openGlowTime 秒で少し明るく（ふわっ）→ 残りでなめらかに消える。ふちの帯は後半でじわっと出る
@@ -123,10 +182,11 @@ public class FuwaTutorialGoal : UdonSharpBehaviour
         if (clearMark != null) clearMark.SetActive(false);
         if (hint != null) hint.SetActive(false);
         if (gateBlock != null) gateBlock.SetActive(true);
-        if (gateSolid != null) gateSolid.SetActive(true);
+        if (gateSolid != null) gateSolid.SetActive(_wallShown);
         if (gateDoor != null) gateDoor.SetActive(false);
         if (gatePlug != null) gatePlug.gameObject.SetActive(false);
-        _openT = -1f;
+        _openT = -1f; _passed = false;
+        if (_wallT < 0f) FadeWall(1f);
         SetEdge(1f);
         if (arrows != null) arrows.SetActive(false);
     }
@@ -140,6 +200,21 @@ public class FuwaTutorialGoal : UdonSharpBehaviour
     private void Update()
     {
         if (_openT >= 0f) { _openT += Time.deltaTime; AnimOpen(); }
+        if (_wallT >= 0f)
+        {
+            _wallT += Time.deltaTime;
+            float u = Mathf.Clamp01(_wallT / Mathf.Max(0.01f, wallFadeTime)); u = u * u * (3f - 2f * u);
+            if (_wallT >= wallFadeTime) { _wallT = -1f; FadeWall(1f); } else FadeWall(u);
+        }
+        // この扉を人かふわふわがくぐったら、次の区画の壁を出す
+        if (_opened && !_passed && nextGoal != null)
+        {
+            VRCPlayerApi lpp = Networking.LocalPlayer;
+            bool through = false;
+            if (lpp != null) { Vector3 d = lpp.GetPosition() - _gatePos; if (Vector3.Dot(d, _gateFwd) > 0.3f && d.sqrMagnitude < 64f) through = true; }
+            if (!through && ball != null) { Vector3 d = ball.transform.position - _gatePos; if (Vector3.Dot(d, _gateFwd) > 0.3f && d.sqrMagnitude < 64f) through = true; }
+            if (through) { _passed = true; nextGoal.ShowWall(); }
+        }
         if (arrows != null && arrows.activeSelf && arrowRenderers != null && arrowRenderers.Length > 0 && arrowLit != null)
         {
             int n = arrowRenderers.Length;
@@ -191,6 +266,7 @@ public class FuwaTutorialGoal : UdonSharpBehaviour
         if (gateBlock != null) gateBlock.SetActive(false);
         if (gateSolid != null) gateSolid.SetActive(false);
         if (gateDoor != null) gateDoor.SetActive(true);
+        _wallShown = true; _wallT = -1f; FadeWall(1f);
         if (gatePlug != null) { gatePlug.gameObject.SetActive(true); _openT = 0f; AnimOpen(); }
         if (doorFx != null) doorFx.Play();
         if (arrows != null) arrows.SetActive(true);
@@ -207,8 +283,11 @@ public class FuwaTutorialGoal : UdonSharpBehaviour
     // チュートリアルから出た時（FuwaReadMarks.ResetFromRespawn から）
     public void ResetGoal()
     {
+        Init();
         _cleared = false; _opened = false; _failBase = -1; _time = 0f;
+        _wallShown = false; _wallT = -1f; FadeWall(1f);
         if (monster != null && _monRevive >= 0f) { monster.autoReviveDelay = _monRevive; monster.Revive(); }
         ApplyIdle();
+        if (wallOnEnable && gameObject.activeInHierarchy) ShowWall();
     }
 }

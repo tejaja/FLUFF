@@ -177,6 +177,13 @@ public class FuwaReadMarks : UdonSharpBehaviour
             while (_next < marks.Length && _read[_next]) _next++;   // 先に読んであった看板は飛ばす
             if (_next < marks.Length && marks[_next] != null) { marks[_next].gameObject.SetActive(true); marks[_next].localScale = Vector3.zero; _goneAt[_next] = -Time.time; }
         }
+        // 次の看板がまだ出ていない間は▼も出さない。看板が出たらいっしょにぽんっと出す（2026-11-25 てじゃ「赤い矢印だけ看板より先にでちゃってる」）
+        if (_next < marks.Length && _next < signs.Length && marks[_next] != null && signs[_next] != null && !_read[_next])
+        {
+            bool sv = signs[_next].gameObject.activeInHierarchy, on = marks[_next].gameObject.activeSelf;
+            if (!sv && on) marks[_next].gameObject.SetActive(false);
+            else if (sv && !on) { marks[_next].gameObject.SetActive(true); marks[_next].localScale = Vector3.zero; _goneAt[_next] = -Time.time; }
+        }
         for (int i = 0; i < marks.Length; i++)
         {
             Transform m = marks[i];

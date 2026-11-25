@@ -553,6 +553,7 @@ public static class FuwaTutorialChallenge
         for (int i = 0; i < N; i++) pt.AddRange(new[] { 0, 1 + i, 1 + (i + 1) % N });
         var plug = Obj("DoorPlug", SaveMesh(Make(pp, pt), "Tutorial_GateDoorPlug_" + bayName), mat, gate);
         plug.SetActive(false);
+        solid.SetActive(false);   // 壁は前の扉をくぐったら FuwaTutorialGoal.ShowWall で出す（2026-11-25）
         // ふちの白い帯（2026-11-24 てじゃ「開いた扉のフチをちょっと強調」）：穴の内がわ、左右と ∩ の上
         {
             float w = DoorEdge; var V = new List<Vector2>(); var T = new List<int>(); var Cc = new List<Color>();
@@ -630,7 +631,7 @@ public static class FuwaTutorialChallenge
             var nb = Object.FindObjectsOfType<FuwaPopWall>(true).Select(w => w.transform).FirstOrDefault(t => (t.position - gate.position).sqrMagnitude < 0.0001f);
             FitBarrier(nb, cxL, floorL);
             sb.Append(nb ? "" : " (当たり見つからず)");
-            solid.SetActive(true); door.SetActive(false);
+            solid.SetActive(false); door.SetActive(false);   // 壁は前の扉をくぐったら FuwaTutorialGoal.ShowWall で出す
             goal.gateSolid = solid; goal.gateDoor = door; goal.gatePlug = plug.GetComponent<Renderer>(); goal.doorEdge = door.transform.Find("DoorEdge").GetComponent<Renderer>();
             UdonSharpEditorUtility.CopyProxyToUdon(goal); EditorUtility.SetDirty(goal); n++;
             sb.Append($" {bayName}(cx {cxL:F2} floor {floorL:F2} 板 {sx:F1}x{sy:F1})");
@@ -694,7 +695,11 @@ public static class FuwaTutorialChallenge
             }
             else { var m = Tut().Find("Sign_MoreTricks"); if (m) list.Add(m.gameObject); }
             foreach (var g in list) Gate(g);
-            goal.readMarks = marks; goal.revealOnClear = list.ToArray(); UdonSharpEditorUtility.CopyProxyToUdon(goal); n++;
+            goal.readMarks = marks; goal.revealOnClear = list.ToArray();
+            // 壁は前の扉をくぐったら出す（最初の区画は輪が出た時）2026-11-25 てじゃ
+            goal.nextGoal = i + 1 < BayOrder.Length ? Bay(BayOrder[i + 1]).GetComponentInChildren<FuwaTutorialGoal>(true) : null;
+            goal.wallOnEnable = i == 0;
+            UdonSharpEditorUtility.CopyProxyToUdon(goal); n++;
         }
         marks.reveal = rv.ToArray(); marks.revealAt = ra.ToArray(); UdonSharpEditorUtility.CopyProxyToUdon(marks); EditorUtility.SetDirty(marks);
         return "[課題] クリアで出す物をつないだ " + n + "・reveal " + rv.Count;
