@@ -398,6 +398,7 @@ public static class FuwaCourse2_2Builder
         RockCracks(fire);
         RockPathDots(fire);
         RockLandWarns(fire);
+        Debug.Log(FuwaCourse2_2PathSmooth.Run(root));   // 道の面の法線をなめらかに（2026-11-25）
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         return "[2–2] ゴールまで " + p.z.ToString("F0") + "m、高さ " + p.y.ToString("F1") + "m";
     }
@@ -3143,5 +3144,60 @@ public static class FuwaCourse2_2HeatZoneFix
             EditorUtility.SetDirty(go); n++;
         }
         return "[2–2] 焚き火の吸い寄せ範囲 " + n + " か所 → 半径 " + FuwaCourse2_2Builder.HeatZoneR + "m";
+    }
+}
+
+// 2026-11-25 てじゃ「坂の曲がり角とか、なんかうっすら段が見えるのなんでかな」
+//  道（ZigPath・Path12・Path5）のメッシュは面ごとに頂点を分けていて、法線も面ごと（かくかく）。坂の曲がり角では、となりの面と少しずつ向きがちがうので、
+//  トゥーンの陰の段が細いスジになって見えていた → 同じ位置の頂点で、向きの近い面（SmoothAngle 度以内）どうしの法線を平均する（道のふち・側面の角はそのまま）
+public static class FuwaCourse2_2PathSmooth
+{
+    public static float SmoothAngle = 25f;
+    [MenuItem("FuwaCourse/ステージ2/2–2 道の面をなめらかにする（細いスジを消す）")]
+    public static void Menu()
+    {
+        var r = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().FirstOrDefault(g => g.name == "FuwaCourse2_2");
+        if (r) { Debug.Log(Run(r.transform)); UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(r.scene); }
+    }
+    public static string Run(Transform root)
+    {
+        string log = "[2–2 道の面] ";
+        float cosT = Mathf.Cos(SmoothAngle * Mathf.Deg2Rad);
+        foreach (var n in new[] { "ZigPath", "Path12", "Path5" })
+            foreach (var mf in root.GetComponentsInChildren<MeshFilter>(true).Where(x => x.name == n))
+            {
+                var m = mf.sharedMesh; if (!m || !m.isReadable) continue;
+                var v = m.vertices; var nv = new Vector3[v.Length];
+                // 面の向き（頂点ごとに、その頂点が属する三角形の向きを足す）
+                var faceN = new Vector3[v.Length]; var cnt = new int[v.Length];
+                for (int s = 0; s < m.subMeshCount; s++)
+                {
+                    var t = m.GetTriangles(s);
+                    for (int i = 0; i < t.Length; i += 3)
+                    {
+                        var fn = Vector3.Cross(v[t[i + 1]] - v[t[i]], v[t[i + 2]] - v[t[i]]);   // 面積の重みつき
+                        for (int k = 0; k < 3; k++) { faceN[t[i + k]] += fn; cnt[t[i + k]]++; }
+                    }
+                }
+                for (int i = 0; i < v.Length; i++) faceN[i] = faceN[i].sqrMagnitude > 1e-12f ? faceN[i].normalized : Vector3.up;
+                // 同じ位置の頂点をまとめて、向きの近いものどうしで平均
+                var groups = new Dictionary<Vector3Int, List<int>>();
+                for (int i = 0; i < v.Length; i++)
+                {
+                    var key = new Vector3Int(Mathf.RoundToInt(v[i].x * 2000f), Mathf.RoundToInt(v[i].y * 2000f), Mathf.RoundToInt(v[i].z * 2000f));
+                    if (!groups.TryGetValue(key, out var l)) groups[key] = l = new List<int>(); l.Add(i);
+                }
+                foreach (var g in groups.Values)
+                    foreach (int i in g)
+                    {
+                        var sum = Vector3.zero;
+                        foreach (int j in g) if (Vector3.Dot(faceN[i], faceN[j]) >= cosT) sum += faceN[j];
+                        nv[i] = sum.sqrMagnitude > 1e-12f ? sum.normalized : faceN[i];
+                    }
+                m.normals = nv; EditorUtility.SetDirty(m);
+                log += n + "(" + v.Length + ") ";
+            }
+        AssetDatabase.SaveAssets();
+        return log;
     }
 }
