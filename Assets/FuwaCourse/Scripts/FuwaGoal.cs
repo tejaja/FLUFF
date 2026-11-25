@@ -94,7 +94,6 @@ public class FuwaGoal : UdonSharpBehaviour
     public float catchRise = 0.3f;
     [Tooltip("寄せている間に出す、リングへうずを巻いて吸い込まれる胞子")]
     public ParticleSystem catchFx;
-    public Color catchGlowColor = new Color(1f, 0.86f, 0.45f);
     [Tooltip("ゴールした時に OnCourseGoal を呼ぶ相手（ゴールした本人の画面だけ）")]
     public UdonSharpBehaviour[] onGoal;
 
@@ -233,8 +232,6 @@ public class FuwaGoal : UdonSharpBehaviour
                 float k = catchPull * Mathf.Lerp(catchTopScale, 1f, low);
                 Vector3 vh = new Vector3(v.x, 0f, v.z);
                 catchBall.AddHeat(-off * k - vh * catchDamp);
-                float d = off.magnitude;
-                if (d > 0.05f) catchBall.Glow(catchGlowColor, -off / d, Mathf.Lerp(0.35f, 0.8f, low), 0.1f);
             }
         }
         if (on != _catching)

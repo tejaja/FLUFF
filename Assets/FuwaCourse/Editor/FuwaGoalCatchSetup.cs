@@ -49,14 +49,14 @@ public static class FuwaGoalCatchSetup
         main.playOnAwake = false;
         main.loop = true;
         main.duration = 1f;
-        main.startLifetime = new ParticleSystem.MinMaxCurve(1.1f, 1.5f);
+        main.startLifetime = new ParticleSystem.MinMaxCurve(2.0f, 2.6f);   // 2026-11-25 てじゃ「粒子を減らして速度も落とす」
         main.startSpeed = 0f;
-        main.startSize = new ParticleSystem.MinMaxCurve(0.09f, 0.17f);
-        main.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 0.85f, 0.35f, 1f), new Color(1f, 0.62f, 0.4f, 1f));   // 草の緑・空の青の上でも見える濃いめの金〜桃
+        main.startSize = new ParticleSystem.MinMaxCurve(0.2f, 0.34f);   // ぼかした大きめの粒（てじゃ「もっとボカしたもの」）
+        main.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 0.85f, 0.4f, 0.55f), new Color(1f, 0.68f, 0.45f, 0.55f));   // 草の緑・空の青の上でも見える濃いめの金〜桃
         main.simulationSpace = ParticleSystemSimulationSpace.Local;
         main.maxParticles = 120;
         main.gravityModifier = 0f;
-        var em = ps.emission; em.rateOverTime = 70f;
+        var em = ps.emission; em.rateOverTime = 22f;
         var sh = ps.shape;
         sh.shapeType = ParticleSystemShapeType.Circle;
         sh.radius = r * 0.92f;
@@ -69,9 +69,9 @@ public static class FuwaGoalCatchSetup
         var vel = ps.velocityOverLifetime;
         vel.enabled = true;
         vel.space = ParticleSystemSimulationSpace.Local;
-        vel.radial = new ParticleSystem.MinMaxCurve(-r * 0.75f);
-        vel.orbitalY = new ParticleSystem.MinMaxCurve(1.6f);
-        vel.x = new ParticleSystem.MinMaxCurve(0f); vel.y = new ParticleSystem.MinMaxCurve(0.1f, 0.9f); vel.z = new ParticleSystem.MinMaxCurve(0f);
+        vel.radial = new ParticleSystem.MinMaxCurve(-r * 0.36f);
+        vel.orbitalY = new ParticleSystem.MinMaxCurve(0.7f);
+        vel.x = new ParticleSystem.MinMaxCurve(0f); vel.y = new ParticleSystem.MinMaxCurve(0.05f, 0.4f); vel.z = new ParticleSystem.MinMaxCurve(0f);
         vel.orbitalX = new ParticleSystem.MinMaxCurve(0f); vel.orbitalZ = new ParticleSystem.MinMaxCurve(0f);
         // ふわっと出て、中心でふっと消える
         var colm = ps.colorOverLifetime; colm.enabled = true;
@@ -81,18 +81,43 @@ public static class FuwaGoalCatchSetup
         colm.color = new ParticleSystem.MinMaxGradient(gr);
         var sz = ps.sizeOverLifetime; sz.enabled = true;
         sz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0.6f), new Keyframe(0.3f, 1f), new Keyframe(1f, 0.4f)));
-        // 回りながら吸い込まれる線が見えるように短い尾
-        var tr = ps.trails; tr.enabled = true; tr.ratio = 1f; tr.lifetime = new ParticleSystem.MinMaxCurve(0.22f); tr.dieWithParticles = true;
-        tr.widthOverTrail = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 1f), new Keyframe(1f, 0f)));
-        tr.inheritParticleColor = true; tr.sizeAffectsWidth = true; tr.minVertexDistance = 0.04f;
-        var tg = new Gradient(); tg.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(0.8f, 0f), new GradientAlphaKey(0f, 1f) });
-        tr.colorOverTrail = new ParticleSystem.MinMaxGradient(tg);
+        var tr = ps.trails; tr.enabled = false;   // 2026-11-25 てじゃ「スジ無しで粒子のみ」
         var pr = go.GetComponent<ParticleSystemRenderer>();
-        pr.trailMaterial = AssetDatabase.GetBuiltinExtraResource<Material>("Default-ParticleSystem.mat");
-        pr.sharedMaterial = AssetDatabase.GetBuiltinExtraResource<Material>("Default-ParticleSystem.mat");
+        pr.sharedMaterial = SoftMat();
         pr.renderMode = ParticleSystemRenderMode.Billboard;
         pr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         pr.receiveShadows = false;
         return ps;
+    }
+
+    // ふちまでなだらかに消える、ぼかした丸（ガウス）。Default-ParticleSystem よりずっとふんわり
+    static Material SoftMat()
+    {
+        const string texPath = "Assets/FuwaCourse/Textures/GoalCatchSoftDot.png", matPath = "Assets/FuwaCourse/Materials/GoalCatchSpore.mat";
+        var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(texPath);
+        if (tex == null)
+        {
+            System.IO.Directory.CreateDirectory("Assets/FuwaCourse/Textures");
+            const int N = 64; var t = new Texture2D(N, N, TextureFormat.RGBA32, false);
+            for (int y = 0; y < N; y++) for (int x = 0; x < N; x++)
+            {
+                float dx = (x + 0.5f) / N * 2f - 1f, dy = (y + 0.5f) / N * 2f - 1f, r2 = dx * dx + dy * dy;
+                float a = Mathf.Exp(-r2 * 4.5f) * Mathf.Clamp01((1f - r2) * 4f);
+                t.SetPixel(x, y, new Color(1f, 1f, 1f, a));
+            }
+            System.IO.File.WriteAllBytes(texPath, t.EncodeToPNG());
+            AssetDatabase.ImportAsset(texPath);
+            var imp = (TextureImporter)AssetImporter.GetAtPath(texPath);
+            imp.alphaIsTransparency = true; imp.wrapMode = TextureWrapMode.Clamp; imp.mipmapEnabled = true; imp.textureCompression = TextureImporterCompression.Uncompressed;
+            imp.SaveAndReimport();
+            tex = AssetDatabase.LoadAssetAtPath<Texture2D>(texPath);
+        }
+        var m = AssetDatabase.LoadAssetAtPath<Material>(matPath);
+        // 光るキノコの胞子と同じ設定（Particles/Standard Unlit）で、模様だけぼかした丸に
+        var src = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/GlowMush_Spore.mat");
+        if (m == null) { m = new Material(src); AssetDatabase.CreateAsset(m, matPath); }
+        else { m.shader = src.shader; m.CopyPropertiesFromMaterial(src); }
+        m.mainTexture = tex; EditorUtility.SetDirty(m);
+        return m;
     }
 }
