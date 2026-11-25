@@ -242,8 +242,8 @@ public static class FuwaTutorialChallenge
     const string R = "<color=#FF6B5C>", E = "</color>";
     [MenuItem("FuwaCourse/れんしゅう/課題：1 ちょん押しと溜め")] public static void M1() => Debug.Log(BuildTap());
     public static string BuildTap() => RingBay("Bay_TapCharge", "Bay_Down", -0.5f, 1.1f, S(-1.2f, 0f, 8f, 0f, 1f), new[] { S(-1.2f, 0f, 8f, 0f, 0f), S(-1.2f, 0f, 8f, 0f, 0.3f) }, 0, 2.0f, Vector3.zero,
-        R + "コツ" + E + "：輪が遠い時は" + R + "長押しで溜めて" + E + "から撃とう\n溜めるほど遠くまで飛ぶ",
-        R + "Tip" + E + ": the ring is far. " + R + "Hold to charge" + E + ", then shoot.\nThe longer you charge, the farther it flies");
+        R + "コツ" + E + "：リングに届かない時は\n" + R + "長押しで溜めて" + E + "近くから撃とう",   // 2026-11-25 てじゃ
+        R + "Tip" + E + ": can't reach the ring?\n" + R + "Hold to charge" + E + " and shoot from close up");
     [MenuItem("FuwaCourse/れんしゅう/課題：2 下向き")] public static void M2() => Debug.Log(BuildDown());
     // 2 下向き（2026-11-24 てじゃ「リングは普通に低めに正面向きで置くだけで十分」）：上から下へ撃つと上がって前へ → 前の低めの立てた輪
     public static float DownRingAhead = 1.6f;

@@ -3107,6 +3107,16 @@ public static class FuwaCourse2_3Builder
         ("DomeObstacles/DomeObs9", new Vector3(7.396f, 0.614f, 54.976f), 233.00f),
         ("DomeObstacles/DomeObs10", new Vector3(13.124f, 0.045f, 60.704f), 355.22f)
     };
+    // シーソー（傾く板）の上の置き物を、てじゃがシーンで動かした所に（2026-11-25 てじゃ「2-3の氷オブジェ、また調整したいな　移動床あたりの」）。
+    //  板（Path/TiltF*）の子なので板と一緒に傾く。親から見たそのままの位置・回転（結晶はパーツごと動かしてあったのでパーツごとに）。V4_FloeObs の配置のあとで上書き
+    public static (string path, Vector3 lp, Vector4 lr)[] TiltObsPose = {
+        ("Path/TiltF2/Obs0/Main", new Vector3(1.44f, 0f, 0.83f), new Vector4(0f, 0f, 0.0262f, 0.9997f)),
+        ("Path/TiltF2/Obs0/Side0", new Vector3(1.72f, 0f, 1.12f), new Vector4(0.1428f, 0f, -0.1389f, 0.98f)),
+        ("Path/TiltF2/Obs0/Side1", new Vector3(1.14f, 0f, 0.56f), new Vector4(-0.1297f, 0f, 0.1461f, 0.9807f)),
+        ("Path/TiltF3/Obs0", new Vector3(0.98f, 0.3225f, -2.1f), new Vector4(0f, 0.8829f, 0f, 0.4695f)),
+        ("Path/TiltF3/Obs1/Main", new Vector3(1.17f, 0f, -1.66f), new Vector4(0.0157f, 0.5984f, 0.021f, 0.8007f)),
+        ("Path/TiltF3/Obs1/Side0", new Vector3(1.4f, 0f, -2.0f), new Vector4(0.0458f, 0.5908f, -0.1549f, 0.7905f)),
+    };
     // ===== 最初の島（MapI1）のスケートの跡 =====
     // 2026-11-24 てじゃ「（チェックポイントから先で）デカいクリスタル目指しちゃって、そのまま谷底にいっちゃう」「流れのスジつけて誘導が無難かな」
     //  → 白いスジ7本（流れる雪の粉）は「ちょっと露骨」→ 誰かが先に滑ったようなスケートの跡（てじゃ「1かな」）。
@@ -3376,6 +3386,11 @@ public static class FuwaCourse2_3Builder
         {
             var t = root.Find(o.path); if (!t) { Debug.LogWarning("[2–3] 置き物がない " + o.path); continue; }
             t.position = root.TransformPoint(o.lp); t.rotation = root.rotation * Quaternion.Euler(0f, o.yaw, 0f); n++;
+        }
+        foreach (var o in TiltObsPose)
+        {
+            var t = root.Find(o.path); if (!t) { Debug.LogWarning("[2–3] 置き物がない " + o.path); continue; }
+            t.localPosition = o.lp; t.localRotation = Quaternion.Normalize(new Quaternion(o.lr.x, o.lr.y, o.lr.z, o.lr.w)); n++;
         }
         Debug.Log("[2–3] 置き物を手の位置へ " + n + " 個");
     }

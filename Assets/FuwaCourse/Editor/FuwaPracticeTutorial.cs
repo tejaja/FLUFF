@@ -51,8 +51,8 @@ public static class FuwaPracticeTutorial
     static readonly Bay[] Bays =
     {
         new Bay(7.5f, "TapCharge",
-            "<size=130%><color=#FF6B5C>ショットとチャージ</color></size>\nショットは長押しで変わる\n長く溜めるほど強く飛ぶ\n近くで撃つともっと強い",   // 2026-11-24 てじゃ
-            "<size=130%><color=#FF6B5C>Shot & Charge</color></size>\nHolding changes your shot\nThe longer you charge, the stronger it flies\nCloser shots are even stronger"),
+            "<size=130%><color=#FF6B5C>ショットとチャージ</color></size>\nショットは溜め時間で変わる\n長く溜めるほど強く飛ぶ\n近くで撃つともっと強い",   // 2026-11-24 てじゃ（11-25「ショットは溜め時間で変わる」に）
+            "<size=130%><color=#FF6B5C>Shot & Charge</color></size>\nCharge time changes your shot\nThe longer you charge, the stronger it flies\nCloser shots are even stronger"),
         new Bay(15.0f, "Down",
             "<size=130%><color=#FF6B5C>下に撃っても上がる</color></size>\nショットはいつも上に持ち上げる\n低いふわふわは上から撃とう",   // 2026-11-24 てじゃ「もっとシンプルに」
             "<size=130%><color=#FF6B5C>Shooting down still lifts it</color></size>\nYour shot always lifts the fluff\nShoot a low fluff from above"),

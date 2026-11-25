@@ -21,6 +21,14 @@ public class FuwaGoal : UdonSharpBehaviour
     public ParticleSystem ringSpores;
     [Tooltip("花火の音（打ち上げ〜破裂まで1本の音）")]
     public AudioSource fireworksSound;
+    // 2026-11-25 てじゃ「至近距離で入れる事おおいから、派手だけど頭上になっちゃう」「柵の外でうちあがるのもありかも」
+    //  花火を、自分から見てゴールの向こう側の柵の外（fireworksAway m 先、fireworksDrop m 下）から打ち上げる。0 なら今まで通りその場
+    [Tooltip("花火を打ち上げる場所：ゴールの中心から、自分と反対側へ何m先か（柵の外）。0でゴールの真ん中")]
+    public float fireworksAway = 0f;
+    [Tooltip("打ち上げる場所を地面から何m下げるか（島のふちの下から上がってくるように）")]
+    public float fireworksDrop = 0f;
+    private bool _fwHomeSet;
+    private Vector3 _fwHome;
     [Tooltip("フェアリーリングのキノコをまとめた親（子のキノコが順番に生える）")]
     public Transform fairyRing;
     [Tooltip("1本のキノコが生えきるまでの秒数")]
@@ -180,7 +188,23 @@ public class FuwaGoal : UdonSharpBehaviour
         if (lobbyWarp != null && !_warpOpened) lobbyWarp.SetActive(false);
 
         // お祝い：胞子の花火と、キノコの輪から舞い上がる胞子（ゴールのたびに）
-        if (fireworks != null) { fireworks.Clear(true); fireworks.Play(true); }
+        if (fireworks != null)
+        {
+            // 花火を自分のほうへ向ける（輪の玉が正面から輪に見える・3発が左右に開く）2026-11-25
+            if (!_fwHomeSet) { _fwHome = fireworks.transform.position; _fwHomeSet = true; }
+            VRCPlayerApi lp = Networking.LocalPlayer;
+            if (lp != null)
+            {
+                Vector3 d = lp.GetPosition() - _fwHome; d.y = 0f;
+                if (d.sqrMagnitude > 0.01f)
+                {
+                    d.Normalize();
+                    fireworks.transform.rotation = Quaternion.LookRotation(d);
+                    fireworks.transform.position = _fwHome - d * fireworksAway + Vector3.down * fireworksDrop;
+                }
+            }
+            fireworks.Clear(true); fireworks.Play(true);
+        }
         if (ringSpores != null) { ringSpores.Clear(true); ringSpores.Play(true); }
         if (fireworksSound != null) { fireworksSound.Stop(); fireworksSound.Play(); }
 

@@ -10,6 +10,13 @@ using VRC.SDKBase;
 public class FuwaBgm : UdonSharpBehaviour
 {
     public FuwaBall ball;
+    // 2026-11-25 てじゃ「蓄音機で曲かえたとき、タイトル島まで変わっちゃう」「タイトル島はロビー曲、ってせっていはダメ？」
+    //  → 入口（タイトル島、エリア0）にいる間はいつも hubTrack。蓄音機の曲はあそびば（エリア2）にいる時だけ
+    //   （ふわふわの startPoint はタイトル島に行っても あそびばのまま なので、それだけでは見分けられなかった）
+    [Tooltip("今いるエリア（0=入口のタイトル島 / 1=コース / 2=あそびば）")]
+    public FuwaAreaVisibility areaVisibility;
+    [Tooltip("タイトル島（エリア0）で流す曲（tracks の番号）。-1 ならふつうの決め方")]
+    public int hubTrack = 0;
     [Tooltip("曲（ループ設定のAudioSource）。0番はロビー")]
     public AudioSource[] tracks;
     [Tooltip("各曲に対応するふわふわのスタート地点（FuwaBall.startPointと同じもの）")]
@@ -251,7 +258,8 @@ public class FuwaBgm : UdonSharpBehaviour
     private bool GramoActive()
     {
         return gramoPlaying && overrideTrack >= 0 && tracks != null && overrideTrack < tracks.Length
-            && overrideArea != null && ball != null && ball.startPoint == overrideArea;
+            && overrideArea != null && ball != null && ball.startPoint == overrideArea
+            && (areaVisibility == null || areaVisibility.GetArea() == 2);
     }
     private bool Silenced() { return externalSilence && !GramoActive(); }
     // 今BGMが鳴っているか
@@ -336,6 +344,8 @@ public class FuwaBgm : UdonSharpBehaviour
     private int FindTrack()
     {
         if (ball == null || starts == null) return 0;
+        // タイトル島にいる間はロビーの曲
+        if (areaVisibility != null && areaVisibility.GetArea() == 0 && hubTrack >= 0 && hubTrack < tracks.Length) return hubTrack;
         // 蓄音機で再生中の曲：あそびばにいる間だけ
         if (GramoActive()) return overrideTrack;
         if (_afterGoal)
