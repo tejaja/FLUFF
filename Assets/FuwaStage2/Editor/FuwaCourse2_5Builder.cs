@@ -264,6 +264,7 @@ public static class FuwaCourse2_5Builder
         // 2026-11-16 てじゃ「中段、今奥から手前だけど、手前から奥にしたい」「完全に左右逆にして180度回す感じで」
         //  → 到着ポータル（WarpAIn）と出口（WarpW）のまん中を通る、進む向きに直角な鏡で中段まるごと映す（MirrorIsland）
         if (PitLiners) AddPitLiners();   // 2026-11-16 穴の中の影の壁（鏡の前に：中段の穴の壁もいっしょに映る）
+        if (PitTeeth) foreach (var wrT in root.GetComponentsInChildren<Transform>(true).Where(t => t.name.StartsWith("WindRun")).ToList()) AddPitTeeth(wrT, "");   // 2026-11-25 穴のふちの大きいギザ（鏡の前に）
         if (MidMirror && warpAin && warpW) MirrorIsland(iw, root.InverseTransformPoint(warpAin.position), root.InverseTransformPoint(warpW.position));
         HW = hwSave; pitTable = null; TileL = tileL0;
         // 2026-11-14 落とし穴の下に地面があると落ちても立ててしまうので、回廊の下の地面はなし（トンネルだけ浮いている）
@@ -1168,6 +1169,156 @@ public static class FuwaCourse2_5Builder
             ChamferTile(v, t, pc, ps, pch, pst);
         }
         return true;
+    }
+
+    // ===== 2026-11-25 穴のふちの大きいギザ（てじゃ「ギザギザやてみるかぁ、ただし穴は大きくはしない、かつ一辺に山が１～２個程度の大きいギザ」）=====
+    //  穴に面した辺に、穴のほうへ出っぱる三角の山を 1〜2 個（穴は大きくならない）。山の上は道と同じ石（ふちの面取りつき）、横の面は穴の壁と同じ暗いグラデ。
+    //  山には乗れる（当たりの MeshCollider、道と同じレイヤー）。WindRun ごとに PitTeeth（石）・PitTeethWall（壁）・PitTeethCol（当たり）
+    public static bool PitTeeth = true;
+    public static Vector2 TeethD = new Vector2(0.16f, 0.3f);    // 山の高さ（穴のほうへ出る長さ）
+    public static Vector2 TeethBase = new Vector2(0.6f, 0.9f);  // 山の根元の幅（辺をわけた1区画に対する割合）
+    public static float TeethTwoAt = 1.3f;                       // 穴に面した区間がこれより長ければ 2 個にすることがある
+    static void AddPitTeeth(Transform wr, string suffix)
+    {
+        foreach (var old in wr.Cast<Transform>().Where(x => x.name.StartsWith("PitTeeth")).ToList()) Object.DestroyImmediate(old.gameObject);
+        var tiles = wr.Cast<Transform>().Where(t => t.name == "Tile").ToList(); if (tiles.Count == 0) return;
+        var wallMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Ruins_PitWall.mat");
+        // タイルの色：今の見た目（TilesBevel）から読む
+        var bev = wr.Cast<Transform>().Where(x => x.name == "TilesBevel").Select(x => (x.GetComponent<MeshFilter>(), x.GetComponent<MeshRenderer>())).Where(x => x.Item1 && x.Item2 && x.Item1.sharedMesh).ToList();
+        var bevV = bev.Select(b => (b.Item2.sharedMaterial, b.Item1.sharedMesh.vertices.Select(q => wr.InverseTransformPoint(b.Item1.transform.TransformPoint(q))).ToArray())).ToList();
+        Material MatOf(Transform tl)
+        {
+            var tp = tl.localPosition; float yt0 = tp.y + tl.localScale.y / 2f;
+            foreach (var (m, vs) in bevV) foreach (var q in vs) if (Mathf.Abs(q.y - yt0) < 0.01f && Mathf.Abs(q.x - tp.x) < tl.localScale.x / 2f - 0.05f && Mathf.Abs(q.z - tp.z) < tl.localScale.z / 2f - 0.05f) return m;
+            var mr = tl.GetComponent<MeshRenderer>(); return mr ? mr.sharedMaterial : pathA;
+        }
+        float minX = tiles.Min(t => t.localPosition.x - t.localScale.x / 2f), maxX = tiles.Max(t => t.localPosition.x + t.localScale.x / 2f);
+        float minZ = tiles.Min(t => t.localPosition.z - t.localScale.z / 2f), maxZ = tiles.Max(t => t.localPosition.z + t.localScale.z / 2f);
+        bool Inside(float x, float z) { foreach (var t in tiles) { var p = t.localPosition; var s = t.localScale; if (Mathf.Abs(x - p.x) < s.x / 2f && Mathf.Abs(z - p.z) < s.z / 2f) return true; } return false; }
+        bool IsPit(float x, float z) => x > minX + 0.01f && x < maxX - 0.01f && z > minZ + 0.01f && z < maxZ - 0.01f && !Inside(x, z);
+        var sv = new Dictionary<Material, List<Vector3>>(); var st = new Dictionary<Material, List<int>>();
+        var wv = new List<Vector3>(); var wc = new List<Color>(); var wt = new List<int>();
+        var cv = new List<Vector3>(); var ct = new List<int>();
+        float h = PitBevel; int teeth = 0;
+        int seed = 0; foreach (char ch in wr.parent.name + wr.name) seed = seed * 31 + ch;
+        var rnd = new System.Random(seed);
+        float R(float a, float b) => a + (b - a) * (float)rnd.NextDouble();
+        void WallQ(Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 want, float yTop, float yBot)
+        {
+            Color Col(Vector3 p) => Color.Lerp(PitBottomCol, PitTopCol, Mathf.InverseLerp(yBot, yTop, p.y));
+            int j = wv.Count; wv.Add(a); wv.Add(b); wv.Add(c); wv.Add(d); wc.Add(Col(a)); wc.Add(Col(b)); wc.Add(Col(c)); wc.Add(Col(d));
+            if (Vector3.Dot(Vector3.Cross(b - a, c - a), want) > 0f) { wt.Add(j); wt.Add(j + 1); wt.Add(j + 2); wt.Add(j); wt.Add(j + 2); wt.Add(j + 3); }
+            else { wt.Add(j); wt.Add(j + 2); wt.Add(j + 1); wt.Add(j); wt.Add(j + 3); wt.Add(j + 2); }
+        }
+        // 1) タイルごとに、穴に面した区間を集める（辺の向き・辺の位置・区間）
+        var segs = new List<(int side, float plane, float u0, float u1, float yt, float yb)>();
+        foreach (var tl in tiles)
+        {
+            var p = tl.localPosition; var s = tl.localScale; float yt = p.y + s.y / 2f, yb = p.y - s.y / 2f;
+            for (int side = 0; side < 4; side++)
+            {
+                Vector3 n = side == 0 ? Vector3.right : side == 1 ? Vector3.left : side == 2 ? Vector3.forward : Vector3.back;
+                Vector3 a = side < 2 ? Vector3.forward : Vector3.right;
+                float half = side < 2 ? s.z / 2f : s.x / 2f, off = side < 2 ? s.x / 2f : s.z / 2f;
+                var c0 = new Vector3(p.x, 0f, p.z) + n * off;
+                float plane = Vector3.Dot(c0, n), ac = Vector3.Dot(c0, a);
+                const int N = 24; var pit = new bool[N];
+                for (int i = 0; i < N; i++) { float u = -half + (i + 0.5f) * (2f * half / N); var q = c0 + n * 0.05f + a * u; pit[i] = IsPit(q.x, q.z); }
+                int k0 = 0;
+                while (k0 < N)
+                {
+                    if (!pit[k0]) { k0++; continue; }
+                    int k1 = k0; while (k1 + 1 < N && pit[k1 + 1]) k1++;
+                    segs.Add((side, plane, ac - half + k0 * (2f * half / N), ac - half + (k1 + 1) * (2f * half / N), yt, yb));
+                    k0 = k1 + 1;
+                }
+            }
+        }
+        // 2) 同じ辺（向き・位置が同じで、つながっている）をつなげて「穴の1辺」にする
+        var merged = new List<(int side, float plane, float u0, float u1, float yt, float yb)>();
+        foreach (var grp in segs.GroupBy(q => (q.side, Mathf.RoundToInt(q.plane * 100f))))
+        {
+            var list = grp.OrderBy(q => q.u0).ToList();
+            var cur = list[0];
+            for (int i = 1; i < list.Count; i++)
+            {
+                if (list[i].u0 <= cur.u1 + 0.03f && Mathf.Abs(list[i].yt - cur.yt) < 0.01f) cur.u1 = Mathf.Max(cur.u1, list[i].u1);
+                else { merged.Add(cur); cur = list[i]; }
+            }
+            merged.Add(cur);
+        }
+        Transform TileAtPt(Vector3 q) { foreach (var t in tiles) { var pp = t.localPosition; var ss = t.localScale; if (Mathf.Abs(q.x - pp.x) < ss.x / 2f && Mathf.Abs(q.z - pp.z) < ss.z / 2f) return t; } return null; }
+        // 3) 穴の1辺に 1〜2 個の大きい山
+        foreach (var sg in merged)
+        {
+            float segL = sg.u1 - sg.u0; if (segL < 0.6f) continue;
+            Vector3 n = sg.side == 0 ? Vector3.right : sg.side == 1 ? Vector3.left : sg.side == 2 ? Vector3.forward : Vector3.back;
+            Vector3 a = sg.side < 2 ? Vector3.forward : Vector3.right;
+            float yt = sg.yt, yb = sg.yb, wallTop = yt - 0.002f - PitBevel, wallBot = yb - 0.25f;
+            int cnt = segL > TeethTwoAt && rnd.NextDouble() < 0.6 ? 2 : 1;
+            float slot = (segL - 0.24f) / cnt;
+            for (int ti = 0; ti < cnt; ti++)
+            {
+                float bw = slot * R(TeethBase.x, TeethBase.y);
+                float sc = sg.u0 + 0.12f + slot * ti + slot / 2f + R(-1f, 1f) * (slot - bw) / 2f;
+                float b0 = sc - bw / 2f, b1 = sc + bw / 2f, um = sc + R(-0.25f, 0.25f) * bw;
+                float d = Mathf.Min(R(TeethD.x, TeethD.y), bw * 0.6f);
+                Vector3 c0 = n * sg.plane;
+                Vector3 P0 = c0 + a * b0, P1 = c0 + a * b1, A = c0 + n * d + a * um;
+                var tl = TileAtPt(c0 + a * sc - n * 0.1f);
+                var mat = tl ? MatOf(tl) : pathA;
+                if (!sv.ContainsKey(mat)) { sv[mat] = new List<Vector3>(); st[mat] = new List<int>(); }
+                var V = sv[mat]; var T = st[mat];
+                Vector3 P0t = P0 - n * h, P1t = P1 - n * h, At = A - n * h * 1.4f;   // 上の面は面取りぶん内がわ
+                Vector3 Y(Vector3 q, float y) => new Vector3(q.x, y, q.z);
+                Tri(V, T, Y(P0t, yt), Y(P1t, yt), Y(At, yt), Vector3.up);
+                var n0 = Vector3.Cross(Vector3.up, A - P0).normalized; if (Vector3.Dot(n0, n) < 0f) n0 = -n0;
+                var n1 = Vector3.Cross(Vector3.up, P1 - A).normalized; if (Vector3.Dot(n1, n) < 0f) n1 = -n1;
+                Tri(V, T, Y(P0t, yt), Y(At, yt), Y(A, yt - h), n0 + Vector3.up); Tri(V, T, Y(P0t, yt), Y(A, yt - h), Y(P0, yt - h), n0 + Vector3.up);
+                Tri(V, T, Y(At, yt), Y(P1t, yt), Y(P1, yt - h), n1 + Vector3.up); Tri(V, T, Y(At, yt), Y(P1, yt - h), Y(A, yt - h), n1 + Vector3.up);
+                WallQ(Y(P0, yt - h), Y(A, yt - h), Y(A, yb), Y(P0, yb), n0, wallTop, wallBot);
+                WallQ(Y(A, yt - h), Y(P1, yt - h), Y(P1, yb), Y(A, yb), n1, wallTop, wallBot);
+                { int j = wv.Count; wv.Add(Y(P0, yb)); wv.Add(Y(P1, yb)); wv.Add(Y(A, yb)); var cb = Color.Lerp(PitBottomCol, PitTopCol, Mathf.InverseLerp(wallBot, wallTop, yb)); wc.Add(cb); wc.Add(cb); wc.Add(cb);
+                  if (Vector3.Dot(Vector3.Cross(wv[j + 1] - wv[j], wv[j + 2] - wv[j]), Vector3.down) > 0f) { wt.Add(j); wt.Add(j + 1); wt.Add(j + 2); } else { wt.Add(j); wt.Add(j + 2); wt.Add(j + 1); } }
+                Vector3 Q0 = P0 - n * 0.05f, Q1 = P1 - n * 0.05f;
+                Tri(cv, ct, Y(Q0, yt), Y(Q1, yt), Y(A, yt), Vector3.up); Tri(cv, ct, Y(Q0, yb), Y(Q1, yb), Y(A, yb), Vector3.down);
+                Tri(cv, ct, Y(Q0, yt), Y(A, yt), Y(A, yb), n0); Tri(cv, ct, Y(Q0, yt), Y(A, yb), Y(Q0, yb), n0);
+                Tri(cv, ct, Y(A, yt), Y(Q1, yt), Y(Q1, yb), n1); Tri(cv, ct, Y(A, yt), Y(Q1, yb), Y(A, yb), n1);
+                Tri(cv, ct, Y(Q1, yt), Y(Q0, yt), Y(Q0, yb), -n); Tri(cv, ct, Y(Q1, yt), Y(Q0, yb), Y(Q1, yb), -n);
+                teeth++;
+            }
+        }
+        if (teeth == 0) return;
+        int mi = 0; string bn = "PitTeeth_" + wr.parent.name + "_" + wr.name;
+        foreach (var kv in sv) if (kv.Value.Count > 0) { var g = MeshObj(wr, "PitTeeth", SaveMesh(bn + "_" + (mi++) + suffix, kv.Value, st[kv.Key]), kv.Key, Vector3.zero, 0, true); g.isStatic = true; }
+        {
+            string mp = MeshDir + "/" + bn + "_Wall" + suffix + ".asset";
+            var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(mp); if (!mesh) { mesh = new Mesh(); AssetDatabase.CreateAsset(mesh, mp); }
+            mesh.Clear(false); mesh.name = bn + "_Wall" + suffix; mesh.SetVertices(wv); mesh.SetColors(wc); mesh.SetTriangles(wt, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds(); EditorUtility.SetDirty(mesh);
+            var g = MeshObj(wr, "PitTeethWall", mesh, wallMat, Vector3.zero, 0, false); g.isStatic = true;
+        }
+        {
+            var cm = SaveMesh(bn + "_Col" + suffix, cv, ct);
+            var g = new GameObject("PitTeethCol"); g.transform.SetParent(wr, false); g.layer = tiles[0].gameObject.layer; g.isStatic = true;
+            g.AddComponent<MeshCollider>().sharedMesh = cm;
+        }
+    }
+    [MenuItem("FuwaCourse/ステージ2/2–5 落とし穴のふちに大きいギザをつける（今のシーン）")]
+    public static void PitTeethMenu() { Debug.Log(PitTeethScene()); }
+    public static string PitTeethScene()
+    {
+        var r0 = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().FirstOrDefault(g => g.name == RootName);
+        if (!r0) return "2–5 がない";
+        root = r0.transform;
+        pathA = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Course2_5_PathA.mat"); pathB = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Course2_5_PathB.mat");   // 色は変えない（PathMat は色を上書きする）
+        int n = 0;
+        foreach (var wr in root.GetComponentsInChildren<Transform>(true).Where(t => t.name.StartsWith("WindRun")).ToList())
+        {
+            bool mir = wr.Cast<Transform>().Any(x => x.name == "TilesBevel" && x.GetComponent<MeshFilter>() && x.GetComponent<MeshFilter>().sharedMesh && x.GetComponent<MeshFilter>().sharedMesh.name.EndsWith("_Mir"));
+            AddPitTeeth(wr, mir ? "_Mir" : ""); n++;
+        }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
+        return "[2–5] 穴のふちのギザ " + n + " か所";
     }
 
     // 2–5 を作り直さずに、今あるシーンの穴の道の見た目（面取り＋欠け）だけ作り直す
