@@ -1053,12 +1053,14 @@ public static class FuwaCourse2_2Builder
         }
         return log;
     }
+    public static float HeatZoneR = 0.75f;   // 焚き火がふわふわを吸い寄せる範囲（丸い筒の半径 m）
     static void GroundFire(Transform parent, string name, Vector3 lp, Vector3 outward)
     {
         var g = new GameObject(name).transform; g.SetParent(parent, false); g.localPosition = lp;
         SeedLook(g, outward);
         var z = new GameObject("HeatZone"); z.transform.SetParent(g, false); z.transform.localPosition = new Vector3(0, 0.9f, 0); z.layer = 4;
-        var bc = z.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(2.0f, 1.8f, 2.0f);
+        // 2026-11-25 てじゃ「焚き火がちょと遠くまで吸い寄せ過ぎかなぁ」→ 四角（2m、ななめは中心から1.4m）→ 丸い筒（半径 HeatZoneR）
+        var bc = z.AddComponent<CapsuleCollider>(); bc.isTrigger = true; bc.direction = 1; bc.radius = HeatZoneR; bc.height = 1.8f + HeatZoneR * 2f;
         var hp = new GameObject("HoverPoint").transform; hp.SetParent(g, false); hp.localPosition = new Vector3(0, SeedHover, 0);
         var hs = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaHeatSource>(z); hs.heat = heat; hs.hoverPoint = hp;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(hs); FuwaStage2WaterTest.NoSync(hs);
@@ -3105,5 +3107,26 @@ public static class FuwaCourse2_2Builder
         foreach (var fc in cps) { arr.arraySize++; arr.GetArrayElementAtIndex(arr.arraySize - 1).objectReferenceValue = fc; }
         so.ApplyModifiedProperties();
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(ball);
+    }
+}
+
+public static class FuwaCourse2_2HeatZoneFix
+{
+    // 作り直さずに、今の 2–2 の焚き火の吸い寄せ範囲を丸い筒（HeatZoneR）にする
+    [MenuItem("FuwaCourse/ステージ2/2–2 焚き火の吸い寄せ範囲を今の設定にする")]
+    public static void Menu() { Debug.Log(Run()); }
+    public static string Run()
+    {
+        int n = 0;
+        foreach (var hs in Resources.FindObjectsOfTypeAll<FuwaHeatSource>())
+        {
+            if (!hs || EditorUtility.IsPersistent(hs) || !hs.gameObject.scene.IsValid()) continue;
+            var go = hs.gameObject;
+            var box = go.GetComponent<BoxCollider>(); if (box) Undo.DestroyObjectImmediate(box);
+            var cap = go.GetComponent<CapsuleCollider>(); if (!cap) cap = Undo.AddComponent<CapsuleCollider>(go);
+            cap.isTrigger = true; cap.direction = 1; cap.center = Vector3.zero; cap.radius = FuwaCourse2_2Builder.HeatZoneR; cap.height = 1.8f + FuwaCourse2_2Builder.HeatZoneR * 2f;
+            EditorUtility.SetDirty(go); n++;
+        }
+        return "[2–2] 焚き火の吸い寄せ範囲 " + n + " か所 → 半径 " + FuwaCourse2_2Builder.HeatZoneR + "m";
     }
 }
