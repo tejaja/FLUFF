@@ -86,11 +86,10 @@ public static class FuwaGoalCatchSetup
                    new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.2f), new GradientAlphaKey(0.9f, 0.75f), new GradientAlphaKey(0f, 1f) });
         colm.color = new ParticleSystem.MinMaxGradient(gr);
         var sz = ps.sizeOverLifetime; sz.enabled = true;
-        sz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0.6f), new Keyframe(0.3f, 1f), new Keyframe(1f, 0.4f)));
-        // ちらっと瞬く（位置はほぼ動かさず、大きさだけゆらす）
-        var nz = ps.noise; nz.enabled = true;
-        nz.strength = new ParticleSystem.MinMaxCurve(0.05f); nz.frequency = 2.5f; nz.scrollSpeed = 1.5f; nz.quality = ParticleSystemNoiseQuality.Low;
-        nz.positionAmount = new ParticleSystem.MinMaxCurve(1f); nz.sizeAmount = new ParticleSystem.MinMaxCurve(8f);
+        // ちらっと瞬く：粒ごとにバラバラ（てじゃ「チカチカが揃ってる？」→ ノイズは近い粒が同じにゆれるのでやめた）
+        //  2本のゆらぎ曲線（速さも位相もちがう）の間を粒ごとにランダムで取る＋粒ごとに年齢がちがう → そろわない
+        sz.size = new ParticleSystem.MinMaxCurve(1f, TwinkleCurve(3.7f, 0f), TwinkleCurve(5.3f, 0.5f));
+        var nz = ps.noise; nz.enabled = false;
         var tr = ps.trails; tr.enabled = false;   // 2026-11-25 てじゃ「スジ無しで粒子のみ」
         var pr = go.GetComponent<ParticleSystemRenderer>();
         pr.sharedMaterial = SoftMat();
@@ -98,6 +97,22 @@ public static class FuwaGoalCatchSetup
         pr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         pr.receiveShadows = false;
         return ps;
+    }
+
+    // 寿命の間の大きさ：ふわっと出て中心で小さく ×（cycles 回のゆらぎ、phase は 0〜1）
+    static AnimationCurve TwinkleCurve(float cycles, float phase)
+    {
+        var c = new AnimationCurve();
+        const int N = 40;
+        for (int i = 0; i <= N; i++)
+        {
+            float t = i / (float)N;
+            float env = t < 0.3f ? Mathf.Lerp(0.6f, 1f, t / 0.3f) : Mathf.Lerp(1f, 0.4f, (t - 0.3f) / 0.7f);
+            float w = 0.5f + 0.5f * Mathf.Sin((t * cycles + phase) * Mathf.PI * 2f);
+            c.AddKey(t, env * Mathf.Lerp(0.55f, 1.1f, w * w));   // 2乗で、明るい瞬間を短く
+        }
+        for (int i = 0; i < c.length; i++) c.SmoothTangents(i, 0f);
+        return c;
     }
 
     // ふちまでなだらかに消える、ぼかした丸（ガウス）。Default-ParticleSystem よりずっとふんわり
