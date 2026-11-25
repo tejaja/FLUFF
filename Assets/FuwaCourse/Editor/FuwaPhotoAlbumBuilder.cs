@@ -12,6 +12,13 @@ using UnityEngine;
 // 本体（Udon）は作り直さない（ネットワークIDの一覧が崩れるので）。ボードと中身は何度でも作り直してよい
 public static class FuwaPhotoAlbumBuilder
 {
+    // 2026-11-25 てじゃ「かってにスクショ、ステージ１が古いままでコースナンバーが１とか２になってる　1-1みたいなのになおそ」
+    //  ステージ1のコース名の頭の番号「1 」〜「5 」を「1–1 」〜「1–5 」に（ステージ2と同じ書き方。チュートリアルの「0」はそのまま）
+    public static string StageNo(string s)
+    {
+        if (!string.IsNullOrEmpty(s) && s.Length >= 2 && s[0] >= '1' && s[0] <= '9' && s[1] == ' ') return "1–" + s;
+        return s;
+    }
     const string ScriptPath = "Assets/FuwaCourse/Scripts/FuwaPhotoAlbum.cs";
     const string ProgramPath = "Assets/FuwaCourse/Scripts/FuwaPhotoAlbum.asset";
     const string FeedMatPath = "Assets/FuwaCourse/Materials/PhotoAlbumFeed.mat";
@@ -199,8 +206,8 @@ public static class FuwaPhotoAlbumBuilder
             var c0 = GameObject.Find("FuwaCourse0/Start/BallStart");
             if (c0 != null && !starts.Contains(c0.transform)) { starts.Insert(0, c0.transform); ja.Insert(0, "0 チュートリアル"); en.Insert(0, "0 Tutorial"); }
             album.courseStarts = starts.ToArray();
-            album.courseNamesJa = ja.ToArray();
-            album.courseNamesEn = en.ToArray();
+            album.courseNamesJa = ja.Select(StageNo).ToArray();
+            album.courseNamesEn = en.Select(StageNo).ToArray();
         }
         album.hideWhileShooting = hud != null ? hud.GetComponentsInChildren<Renderer>(true) : new Renderer[0];
         UdonSharpEditorUtility.CopyProxyToUdon(album);
