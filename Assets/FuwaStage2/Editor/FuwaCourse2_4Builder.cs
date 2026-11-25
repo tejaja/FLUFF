@@ -2161,6 +2161,7 @@ public static class FuwaCourse2_4Builder
         }
         var inlet = GameObject.CreatePrimitive(PrimitiveType.Cylinder); inlet.name = "PipeInlet"; Object.DestroyImmediate(inlet.GetComponent<Collider>());
         inlet.transform.SetParent(pipeT, false); inlet.transform.localPosition = pts[pts.Length - 1]; inlet.transform.localRotation = Quaternion.FromToRotation(Vector3.up, (pts[pts.Length - 1] - pts[pts.Length - 2]).normalized); inlet.transform.localScale = new Vector3(2f * PipeR + 0.2f, 0.12f, 2f * PipeR + 0.2f); inlet.GetComponent<Renderer>().sharedMaterial = cwBrass;
+        FuwaPipeTubes.Convert(pipeT, pipeM);   // 2026-11-25 筒＋球 → 1本の管（曲がり目のすき間）
         // ざらめのふくらみ（使い回し 5 つ、はじめは隠す）
         var bulgeM = FuwaStage2WaterTest.ToonMat("Course2_4_SugarBulge", BulgeCol);
         var bulges = new Transform[5];
@@ -2528,6 +2529,7 @@ public static class FuwaCourse2_4Builder
             }
             var inlet = GameObject.CreatePrimitive(PrimitiveType.Cylinder); inlet.name = "PipeInlet"; Object.DestroyImmediate(inlet.GetComponent<Collider>());
             inlet.transform.SetParent(pipeT, false); inlet.transform.localPosition = Vector3.Lerp(pts[pts.Length - 2], pts[pts.Length - 1], 0.75f); inlet.transform.localRotation = Quaternion.FromToRotation(Vector3.up, (pts[pts.Length - 1] - pts[pts.Length - 2]).normalized); inlet.transform.localScale = new Vector3(2f * R + 0.14f, 0.06f, 2f * R + 0.14f); inlet.GetComponent<Renderer>().sharedMaterial = cwBrass;
+            FuwaPipeTubes.Convert(pipeT, pipeM);   // 2026-11-25 筒＋球 → 1本の管（曲がり目のすき間）
             // 液の色のふくらみ：この管 → 砂糖タンクのまん中で止まる（着いても何も起きない）
             var bulgeM = FuwaStage2WaterTest.ToonMat("Course2_4_TankBulge" + k, Color.Lerp(col, Color.white, 0.15f));
             var bulges = new Transform[4];
