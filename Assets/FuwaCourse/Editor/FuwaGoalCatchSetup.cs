@@ -49,29 +49,35 @@ public static class FuwaGoalCatchSetup
         main.playOnAwake = false;
         main.loop = true;
         main.duration = 1f;
-        main.startLifetime = new ParticleSystem.MinMaxCurve(2.0f, 2.6f);   // 2026-11-25 てじゃ「粒子を減らして速度も落とす」
+        // 2026-11-25 てじゃ「チープ感」→ バラまきをやめて、3本の腕で中心へ巻き込む渦に。粒は芯＋薄いぼかしの1枚絵、色と大きさにばらつき、ちらっと瞬く
+        main.startLifetime = new ParticleSystem.MinMaxCurve(2.4f, 2.7f);   // ふちから中心までちょうど（そろえると腕がきれいに出る）
         main.startSpeed = 0f;
-        main.startSize = new ParticleSystem.MinMaxCurve(0.2f, 0.34f);   // ぼかした大きめの粒（てじゃ「もっとボカしたもの」）
-        main.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 0.85f, 0.4f, 0.55f), new Color(1f, 0.68f, 0.45f, 0.55f));   // 草の緑・空の青の上でも見える濃いめの金〜桃
+        main.startSize = new ParticleSystem.MinMaxCurve(0.3f, 0.55f);   // 芯は小さく、まわりのぼかしは広く
+        var cg = new Gradient();
+        cg.SetKeys(new[] { new GradientColorKey(new Color(1f, 0.86f, 0.42f), 0f), new GradientColorKey(new Color(1f, 0.97f, 0.85f), 0.45f), new GradientColorKey(new Color(1f, 0.7f, 0.55f), 1f) },
+                   new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 1f) });
+        var sc = new ParticleSystem.MinMaxGradient(cg); sc.mode = ParticleSystemGradientMode.RandomColor;   // 金・白っぽい金・桃からランダム
+        main.startColor = sc;
         main.simulationSpace = ParticleSystemSimulationSpace.Local;
         main.maxParticles = 120;
         main.gravityModifier = 0f;
-        var em = ps.emission; em.rateOverTime = 22f;
+        var em = ps.emission; em.rateOverTime = 24f;   // 腕1本あたり8個/秒
         var sh = ps.shape;
         sh.shapeType = ParticleSystemShapeType.Circle;
-        sh.radius = r * 0.92f;
-        sh.radiusThickness = 0.15f;   // ふち寄りから
+        sh.radius = r * 0.75f;   // キノコの輪のすぐ外から
+        sh.radiusThickness = 0f;   // ふちの上から
         sh.rotation = new Vector3(90f, 0f, 0f);   // 水平の円
-        sh.position = new Vector3(0f, 0.2f, 0f);
-        sh.randomPositionAmount = 0f;
+        sh.position = new Vector3(0f, 0.15f, 0f);
+        sh.randomPositionAmount = 0.12f;   // 腕に少し幅
         sh.arcMode = ParticleSystemShapeMultiModeValue.Random;
+        sh.arcSpread = 1f / 3f;   // 0°・120°・240°の3か所からだけ出す → 3本の腕
         // 中へ吸い込まれながら回る（ふちから中心までだいたい寿命いっぱいで）
         var vel = ps.velocityOverLifetime;
         vel.enabled = true;
         vel.space = ParticleSystemSimulationSpace.Local;
-        vel.radial = new ParticleSystem.MinMaxCurve(-r * 0.36f);
-        vel.orbitalY = new ParticleSystem.MinMaxCurve(0.7f);
-        vel.x = new ParticleSystem.MinMaxCurve(0f); vel.y = new ParticleSystem.MinMaxCurve(0.05f, 0.4f); vel.z = new ParticleSystem.MinMaxCurve(0f);
+        vel.radial = new ParticleSystem.MinMaxCurve(-r * 0.29f);
+        vel.orbitalY = new ParticleSystem.MinMaxCurve(0.9f);
+        vel.x = new ParticleSystem.MinMaxCurve(0f, 0f); vel.y = new ParticleSystem.MinMaxCurve(0.03f, 0.12f); vel.z = new ParticleSystem.MinMaxCurve(0f, 0f);   // x・y・zは同じ形式でないと警告
         vel.orbitalX = new ParticleSystem.MinMaxCurve(0f); vel.orbitalZ = new ParticleSystem.MinMaxCurve(0f);
         // ふわっと出て、中心でふっと消える
         var colm = ps.colorOverLifetime; colm.enabled = true;
@@ -81,6 +87,10 @@ public static class FuwaGoalCatchSetup
         colm.color = new ParticleSystem.MinMaxGradient(gr);
         var sz = ps.sizeOverLifetime; sz.enabled = true;
         sz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0.6f), new Keyframe(0.3f, 1f), new Keyframe(1f, 0.4f)));
+        // ちらっと瞬く（位置はほぼ動かさず、大きさだけゆらす）
+        var nz = ps.noise; nz.enabled = true;
+        nz.strength = new ParticleSystem.MinMaxCurve(0.05f); nz.frequency = 2.5f; nz.scrollSpeed = 1.5f; nz.quality = ParticleSystemNoiseQuality.Low;
+        nz.positionAmount = new ParticleSystem.MinMaxCurve(1f); nz.sizeAmount = new ParticleSystem.MinMaxCurve(8f);
         var tr = ps.trails; tr.enabled = false;   // 2026-11-25 てじゃ「スジ無しで粒子のみ」
         var pr = go.GetComponent<ParticleSystemRenderer>();
         pr.sharedMaterial = SoftMat();
@@ -93,7 +103,7 @@ public static class FuwaGoalCatchSetup
     // ふちまでなだらかに消える、ぼかした丸（ガウス）。Default-ParticleSystem よりずっとふんわり
     static Material SoftMat()
     {
-        const string texPath = "Assets/FuwaCourse/Textures/GoalCatchSoftDot.png", matPath = "Assets/FuwaCourse/Materials/GoalCatchSpore.mat";
+        const string texPath = "Assets/FuwaCourse/Textures/GoalCatchGlowDot.png", matPath = "Assets/FuwaCourse/Materials/GoalCatchSpore.mat";
         var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(texPath);
         if (tex == null)
         {
@@ -102,7 +112,8 @@ public static class FuwaGoalCatchSetup
             for (int y = 0; y < N; y++) for (int x = 0; x < N; x++)
             {
                 float dx = (x + 0.5f) / N * 2f - 1f, dy = (y + 0.5f) / N * 2f - 1f, r2 = dx * dx + dy * dy;
-                float a = Mathf.Exp(-r2 * 4.5f) * Mathf.Clamp01((1f - r2) * 4f);
+                // 小さく明るい芯 ＋ 大きく薄いぼかし
+                float a = Mathf.Min(1f, Mathf.Exp(-r2 * 45f) + 0.4f * Mathf.Exp(-r2 * 6f)) * Mathf.Clamp01((1f - r2) * 4f);
                 t.SetPixel(x, y, new Color(1f, 1f, 1f, a));
             }
             System.IO.File.WriteAllBytes(texPath, t.EncodeToPNG());
