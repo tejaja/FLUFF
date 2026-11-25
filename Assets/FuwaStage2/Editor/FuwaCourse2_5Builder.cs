@@ -1117,7 +1117,8 @@ public static class FuwaCourse2_5Builder
                     stop[i, e] = chs.TryGetValue(k + along, out var nb) && nb[i] <= 0f;
                 }
             }
-            ChamferTile(vv[mat], tt[mat], tl.localPosition, tl.localScale, ch, stop);
+            if (!PitNotches || !NotchedTile(vv[mat], tt[mat], tl.localPosition, tl.localScale, ch, stop, k, wr.name))
+                ChamferTile(vv[mat], tt[mat], tl.localPosition, tl.localScale, ch, stop);
             var r = tl.GetComponent<MeshRenderer>(); if (r) Object.DestroyImmediate(r);
             var f = tl.GetComponent<MeshFilter>(); if (f) Object.DestroyImmediate(f);
         }
@@ -1125,6 +1126,95 @@ public static class FuwaCourse2_5Builder
         int n = 0;
         foreach (var kv in vv) MeshObj(wr, "TilesBevel", SaveMesh("TilesBevel_" + wr.parent.name + "_" + wr.name + "_" + (n++), kv.Value, tt[kv.Key]), kv.Key, Vector3.zero, 0, true);
     }
+    // ===== 2026-11-25 穴のふちの欠け（てじゃ「2-5の落下ポイント、やっぱり視認性が悪い」→ 影・薄くする・ギザギザは×「辺の一部が欠けてるようなイメージ」）=====
+    //  穴に面した辺のうち1本の、とちゅうの一部（はば NotchW・奥行き NotchD）を、石の厚みごと四角く欠けさせる（見た目だけ、当たりは箱のまま）。
+    //  作り方：タイルを辺にそって3つに切り（欠けの前・欠け・欠けの後）、まん中だけ穴がわを NotchD 引っこめる。切り口どうしは中に隠れ、欠けの所だけ前後の切り口が見える
+    public static bool PitNotches = false; public static float NotchChance = 0.7f;   // 2026-11-25 てじゃ「ちょとちゃうなあ、もどして」→ 切っておく（試作は残す）
+    public static Vector2 NotchW = new Vector2(0.3f, 0.6f), NotchD = new Vector2(0.1f, 0.2f);
+    static bool NotchedTile(List<Vector3> v, List<int> t, Vector3 c, Vector3 sz, float[] ch, bool[,] stop, Vector2Int k, string tag)
+    {
+        // 穴に面した辺（PitBevel の辺）だけが候補
+        var cand = new List<int>(); for (int i = 0; i < 4; i++) if (ch[i] > 0f && Mathf.Abs(ch[i] - PitBevel) < 1e-4f) cand.Add(i);
+        if (cand.Count == 0) return false;
+        int seed = k.x * 7349 + k.y * 3967; foreach (char cc in tag) seed = seed * 31 + cc;
+        var rnd = new System.Random(seed);
+        if (rnd.NextDouble() > NotchChance) return false;
+        int side = cand[rnd.Next(cand.Count)];
+        bool alongZ = side < 2;   // x の辺 → z にそって切る
+        float L = alongZ ? sz.z : sz.x, Wd = alongZ ? sz.x : sz.z;
+        float w = Mathf.Lerp(NotchW.x, NotchW.y, (float)rnd.NextDouble()); w = Mathf.Min(w, L - 0.5f); if (w < 0.2f) return false;
+        float d = Mathf.Lerp(NotchD.x, NotchD.y, (float)rnd.NextDouble()); d = Mathf.Min(d, Wd * 0.4f);
+        float lo = -L / 2f + 0.25f + w / 2f, hi = L / 2f - 0.25f - w / 2f; if (hi < lo) return false;
+        float u = Mathf.Lerp(lo, hi, (float)rnd.NextDouble());
+        float a = u - w / 2f, b = u + w / 2f;   // 欠けの範囲（辺にそった座標、中心からの）
+        // 3つの部品：[-L/2,a] [a,b] [b,L/2]
+        float[][] rng = { new[] { -L / 2f, a }, new[] { a, b }, new[] { b, L / 2f } };
+        int endPlus = alongZ ? 2 : 0, endMinus = alongZ ? 3 : 1;   // 切る向きの +/− の辺
+        for (int p = 0; p < 3; p++)
+        {
+            float s0 = rng[p][0], s1 = rng[p][1];
+            var pc = c; var ps = sz;
+            if (alongZ) { pc.z = c.z + (s0 + s1) / 2f; ps.z = s1 - s0; } else { pc.x = c.x + (s0 + s1) / 2f; ps.x = s1 - s0; }
+            var pch = (float[])ch.Clone(); var pst = (bool[,])stop.Clone();
+            // 切り口（中の面）は面取りなし・すぼめなし
+            int r0 = alongZ ? 0 : 2;   // 切る向きにそって走る辺（その辺の +/− のはしが切り口になる）
+            if (p < 2) { pch[endPlus] = 0f; pst[r0, 0] = false; pst[r0 + 1, 0] = false; }
+            if (p > 0) { pch[endMinus] = 0f; pst[r0, 1] = false; pst[r0 + 1, 1] = false; }
+            if (p == 1)
+            {   // 欠け：穴がわを d 引っこめる
+                float sgn = (side == 0 || side == 2) ? 1f : -1f;
+                if (alongZ) { pc.x -= sgn * d / 2f; ps.x -= d; } else { pc.z -= sgn * d / 2f; ps.z -= d; }
+            }
+            ChamferTile(v, t, pc, ps, pch, pst);
+        }
+        return true;
+    }
+
+    // 2–5 を作り直さずに、今あるシーンの穴の道の見た目（面取り＋欠け）だけ作り直す
+    //  ※注意：中段の穴（Run5）は鏡で映した物（メッシュ名 _Mir）。これで作り直すと _Mir でない名前の新しいメッシュになる（2026-11-25 試した時は元にもどした）。本番で使うなら 2–5 ごと作り直す方が確実
+    [MenuItem("FuwaCourse/ステージ2/2–5 落とし穴のふちを作り直す（欠け）")]
+    public static void RebevelPitsMenu() { Debug.Log(RebevelPits()); }
+    public static string RebevelPits()
+    {
+        var r0 = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().FirstOrDefault(g => g.name == RootName);
+        if (!r0) return "2–5 がない";
+        root = r0.transform;
+        pathA = PathMat("Course2_5_PathA", PathColA); pathB = PathMat("Course2_5_PathB", PathColB);
+        int n = 0;
+        foreach (var wr in root.GetComponentsInChildren<Transform>(true).Where(t => t.name.StartsWith("WindRun")).ToList())
+        {
+            var tiles = wr.Cast<Transform>().Where(t => t.name == "Tile").ToList(); if (tiles.Count == 0) continue;
+            var bev = wr.Cast<Transform>().Where(x => x.name == "TilesBevel").Select(x => (x.GetComponent<MeshFilter>(), x.GetComponent<MeshRenderer>())).Where(x => x.Item1 && x.Item2).ToList();
+            var sz = tiles[0].localScale; float w = sz.x, l = sz.z;
+            System.Func<Vector3, Vector2Int> K = lp => new Vector2Int(Mathf.RoundToInt(lp.x / w * 2f), Mathf.RoundToInt(lp.z / l * 2f));
+            // タイルの色（行ごとの A/B）を今の見た目から読みもどして、一時的に描画をつける（BevelPitTiles がそれを読む）
+            foreach (var tl in tiles)
+            {
+                if (tl.GetComponent<MeshRenderer>()) continue;
+                Material m = null; var tp = tl.localPosition; float yt = tp.y + tl.localScale.y / 2f;
+                foreach (var (mf, mr) in bev)
+                {
+                    foreach (var vx in mf.sharedMesh.vertices)
+                    {
+                        var q = wr.InverseTransformPoint(mf.transform.TransformPoint(vx));
+                        if (Mathf.Abs(q.y - yt) < 0.01f && Mathf.Abs(q.x - tp.x) < tl.localScale.x / 2f - 0.05f && Mathf.Abs(q.z - tp.z) < tl.localScale.z / 2f - 0.05f) { m = mr.sharedMaterial; break; }
+                    }
+                    if (m) break;
+                }
+                if (m) tl.gameObject.AddComponent<MeshRenderer>().sharedMaterial = m;
+            }
+            var have = new HashSet<Vector2Int>(tiles.Select(t => K(t.localPosition)));
+            int kx0 = have.Min(q => q.x), kx1 = have.Max(q => q.x), kz0 = have.Min(q => q.y), kz1 = have.Max(q => q.y);
+            var pitKeys = new HashSet<Vector2Int>();
+            for (int kx = kx0; kx <= kx1; kx += 2) for (int kz = kz0; kz <= kz1; kz += 2) { var q = new Vector2Int(kx, kz); if (!have.Contains(q)) pitKeys.Add(q); }
+            if (pitKeys.Count == 0) continue;
+            BevelPitTiles(wr, tiles, pitKeys, K, kx0, kx1);
+            n++;
+        }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
+        return "[2–5] 穴の道の見た目を作り直した " + n + " か所";
+    }
+
     // 箱の上の4辺を面取り（ch[i]=0 はなし）。辺のはしは：となりの辺も面取り＝斜めに合わせる（miter）、stop＝すぼめて消す、ほか＝そのまま抜ける
     //  面ごとに頂点を分ける（角ばった陰影）
     static void ChamferTile(List<Vector3> v, List<int> t, Vector3 c, Vector3 sz, float[] ch, bool[,] stop)
