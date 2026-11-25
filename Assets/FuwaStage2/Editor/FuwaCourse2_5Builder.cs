@@ -1175,6 +1175,7 @@ public static class FuwaCourse2_5Builder
     //  穴に面した辺に、穴のほうへ出っぱる三角の山を 1〜2 個（穴は大きくならない）。山の上は道と同じ石（ふちの面取りつき）、横の面は穴の壁と同じ暗いグラデ。
     //  山には乗れる（当たりの MeshCollider、道と同じレイヤー）。WindRun ごとに PitTeeth（石）・PitTeethWall（壁）・PitTeethCol（当たり）
     public static bool PitTeeth = true;
+    public static bool TeethDarkSides = false;   // ギザの横の面を穴の壁の暗いグラデにするか（2026-11-25 てじゃ「近くの色とそろえたい」→ false：タイルと同じ石）
     public static bool PitLinerWalls = false;   // 穴の内がわの暗い壁（PitLiner）。2026-11-25 やめた
     public static Vector2 TeethD = new Vector2(0.16f, 0.3f);    // 山の高さ（穴のほうへ出る長さ）
     public static Vector2 TeethBase = new Vector2(0.6f, 0.9f);  // 山の根元の幅（辺をわけた1区画に対する割合）
@@ -1277,10 +1278,19 @@ public static class FuwaCourse2_5Builder
                 var n1 = Vector3.Cross(Vector3.up, P1 - A).normalized; if (Vector3.Dot(n1, n) < 0f) n1 = -n1;
                 Tri(V, T, Y(P0t, yt), Y(At, yt), Y(A, yt - h), n0 + Vector3.up); Tri(V, T, Y(P0t, yt), Y(A, yt - h), Y(P0, yt - h), n0 + Vector3.up);
                 Tri(V, T, Y(At, yt), Y(P1t, yt), Y(P1, yt - h), n1 + Vector3.up); Tri(V, T, Y(At, yt), Y(P1, yt - h), Y(A, yt - h), n1 + Vector3.up);
-                WallQ(Y(P0, yt - h), Y(A, yt - h), Y(A, yb), Y(P0, yb), n0, wallTop, wallBot);
-                WallQ(Y(A, yt - h), Y(P1, yt - h), Y(P1, yb), Y(A, yb), n1, wallTop, wallBot);
-                { int j = wv.Count; wv.Add(Y(P0, yb)); wv.Add(Y(P1, yb)); wv.Add(Y(A, yb)); var cb = Color.Lerp(PitBottomCol, PitTopCol, Mathf.InverseLerp(wallBot, wallTop, yb)); wc.Add(cb); wc.Add(cb); wc.Add(cb);
-                  if (Vector3.Dot(Vector3.Cross(wv[j + 1] - wv[j], wv[j + 2] - wv[j]), Vector3.down) > 0f) { wt.Add(j); wt.Add(j + 1); wt.Add(j + 2); } else { wt.Add(j); wt.Add(j + 2); wt.Add(j + 1); } }
+                if (TeethDarkSides)
+                {
+                    WallQ(Y(P0, yt - h), Y(A, yt - h), Y(A, yb), Y(P0, yb), n0, wallTop, wallBot);
+                    WallQ(Y(A, yt - h), Y(P1, yt - h), Y(P1, yb), Y(A, yb), n1, wallTop, wallBot);
+                    { int j = wv.Count; wv.Add(Y(P0, yb)); wv.Add(Y(P1, yb)); wv.Add(Y(A, yb)); var cb = Color.Lerp(PitBottomCol, PitTopCol, Mathf.InverseLerp(wallBot, wallTop, yb)); wc.Add(cb); wc.Add(cb); wc.Add(cb);
+                      if (Vector3.Dot(Vector3.Cross(wv[j + 1] - wv[j], wv[j + 2] - wv[j]), Vector3.down) > 0f) { wt.Add(j); wt.Add(j + 1); wt.Add(j + 2); } else { wt.Add(j); wt.Add(j + 2); wt.Add(j + 1); } }
+                }
+                else
+                {   // 2026-11-25 てじゃ「ギザも近くの色とそろえたいな」→ 横の面・底も、となりのタイルと同じ石（同じマテリアル）
+                    Tri(V, T, Y(P0, yt - h), Y(A, yt - h), Y(A, yb), n0); Tri(V, T, Y(P0, yt - h), Y(A, yb), Y(P0, yb), n0);
+                    Tri(V, T, Y(A, yt - h), Y(P1, yt - h), Y(P1, yb), n1); Tri(V, T, Y(A, yt - h), Y(P1, yb), Y(A, yb), n1);
+                    Tri(V, T, Y(P0, yb), Y(P1, yb), Y(A, yb), Vector3.down);
+                }
                 Vector3 Q0 = P0 - n * 0.05f, Q1 = P1 - n * 0.05f;
                 Tri(cv, ct, Y(Q0, yt), Y(Q1, yt), Y(A, yt), Vector3.up); Tri(cv, ct, Y(Q0, yb), Y(Q1, yb), Y(A, yb), Vector3.down);
                 Tri(cv, ct, Y(Q0, yt), Y(A, yt), Y(A, yb), n0); Tri(cv, ct, Y(Q0, yt), Y(A, yb), Y(Q0, yb), n0);
@@ -1292,6 +1302,7 @@ public static class FuwaCourse2_5Builder
         if (teeth == 0) return;
         int mi = 0; string bn = "PitTeeth_" + wr.parent.name + "_" + wr.name;
         foreach (var kv in sv) if (kv.Value.Count > 0) { var g = MeshObj(wr, "PitTeeth", SaveMesh(bn + "_" + (mi++) + suffix, kv.Value, st[kv.Key]), kv.Key, Vector3.zero, 0, true); g.isStatic = true; }
+        if (wv.Count > 0)
         {
             string mp = MeshDir + "/" + bn + "_Wall" + suffix + ".asset";
             var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(mp); if (!mesh) { mesh = new Mesh(); AssetDatabase.CreateAsset(mesh, mp); }
