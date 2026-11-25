@@ -78,6 +78,23 @@ public class FuwaGoal : UdonSharpBehaviour
     public float flashTime = 0.9f;
     [Tooltip("光りながら広がる大きさ（倍）")]
     public float flashScale = 1.15f;
+    [Header("妖精の輪が呼ぶ（2026-11-25 てじゃ「ゴールリングに入れる時、ハズレしたときのイライラ感がすごい」）")]
+    [Tooltip("リングのまわりに落ちてきたふわふわを、リングの方へすーっと寄せる。ふわふわ（自分の）")]
+    public FuwaBall catchBall;
+    [Tooltip("リングの中心からこの距離（m）以内で")]
+    public float catchRadius = 2.6f;
+    [Tooltip("地面からこの高さ（m）以下に来たら寄せる")]
+    public float catchHeight = 2.5f;
+    [Tooltip("寄せる強さ（中心からの距離1mあたりの加速度）。低いほど強く（上のはしでは catchTopScale 倍）")]
+    public float catchPull = 2.0f;
+    public float catchTopScale = 0.4f;
+    [Tooltip("横の勢いを弱める強さ（飛びすぎ防止）")]
+    public float catchDamp = 0.5f;
+    [Tooltip("これより速く上がっている間は寄せない（撃って持ち上げている時はじゃましない）")]
+    public float catchRise = 0.3f;
+    [Tooltip("寄せている間に出す、リングへうずを巻いて吸い込まれる胞子")]
+    public ParticleSystem catchFx;
+    public Color catchGlowColor = new Color(1f, 0.86f, 0.45f);
     [Tooltip("ゴールした時に OnCourseGoal を呼ぶ相手（ゴールした本人の画面だけ）")]
     public UdonSharpBehaviour[] onGoal;
 
@@ -187,6 +204,44 @@ public class FuwaGoal : UdonSharpBehaviour
         _retractTime = -1f;
         if (celebration != null) celebration.Play();
         _startTime = Time.time;
+    }
+
+    // 妖精の輪が呼ぶ：リングのまわりに落ちてきたふわふわを、リングの方へ寄せて横の勢いを弱める（物理の1歩ごと）
+    //  計算（2026-11-25）：上から（高さ2.5m）まわり2.6m以内に落ちてくれば、横に秒速3mで流れていてもほぼ入る（240通り中230）。
+    //  横から入ってくる時は高さ0.7m以上なら入る、地面すれすれ（0.4m以下）は外れる
+    private bool _catching;
+    private float _groundY = float.NaN;
+    private void FixedUpdate()
+    {
+        bool on = false;
+        if (catchBall != null && !_ringGone && catchBall.gameObject.activeInHierarchy)
+        {
+            if (float.IsNaN(_groundY))
+            {
+                Collider tc = (Collider)GetComponent(typeof(Collider));
+                _groundY = tc != null ? tc.bounds.min.y : transform.position.y - 0.35f;
+            }
+            Vector3 p = catchBall.transform.position;
+            Vector3 c = transform.position;
+            Vector3 off = new Vector3(p.x - c.x, 0f, p.z - c.z);
+            float h = p.y - _groundY;
+            Vector3 v = catchBall.GetVelocity();
+            if (h > -0.2f && h < catchHeight && off.sqrMagnitude < catchRadius * catchRadius && v.y < catchRise && !catchBall.IsWaitingOrHidden() && !catchBall.IsCarried() && !catchBall.IsFinished())
+            {
+                on = true;
+                float low = 1f - Mathf.Clamp01(h / catchHeight);
+                float k = catchPull * Mathf.Lerp(catchTopScale, 1f, low);
+                Vector3 vh = new Vector3(v.x, 0f, v.z);
+                catchBall.AddHeat(-off * k - vh * catchDamp);
+                float d = off.magnitude;
+                if (d > 0.05f) catchBall.Glow(catchGlowColor, -off / d, Mathf.Lerp(0.35f, 0.8f, low), 0.1f);
+            }
+        }
+        if (on != _catching)
+        {
+            _catching = on;
+            if (catchFx != null) { if (on) catchFx.Play(); else catchFx.Stop(); }
+        }
     }
 
     private void Update()
