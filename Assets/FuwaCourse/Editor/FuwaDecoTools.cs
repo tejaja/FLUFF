@@ -251,8 +251,21 @@ public static class FuwaDecoTools
         // 苔・石は間引いてまばらに（近くに同じ種類があれば消す＋ランダムに少し減らす）
         removed += Sparsify(holder, new[] { "Deco_Moss", "Deco_Stone" }, 2.6f, 0.75f, seed + 101);
         FitVinesToWall(holder, root);
+        // 中身が全部はじかれた・間引かれたかたまりの入れ物は消す（2026-11-25 シーンの掃除。空っぽの Cluster が1-2に40個残っていた）
+        int emptied = RemoveEmptyClusters(holder);
         EditorUtility.SetDirty(root.gameObject);
-        return "edges " + edges.Count + " clusters " + clusters + " items " + items + " removed(overlap) " + removed;
+        return "edges " + edges.Count + " clusters " + clusters + " items " + items + " removed(overlap) " + removed + " empty clusters " + emptied;
+    }
+
+    public static int RemoveEmptyClusters(Transform holder)
+    {
+        int n = 0;
+        for (int i = holder.childCount - 1; i >= 0; i--)
+        {
+            var c = holder.GetChild(i);
+            if (c.name.StartsWith("Cluster") && c.childCount == 0 && c.GetComponents<Component>().Length == 1) { Object.DestroyImmediate(c.gameObject); n++; }
+        }
+        return n;
     }
 
     [MenuItem("FuwaCourse/済み（押す前に相談）/コースのツルを壁にそわせる")]
