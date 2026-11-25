@@ -42,6 +42,8 @@ public class FuwaTutorialGoal : UdonSharpBehaviour
     [Tooltip("最初の区画：この課題（輪）が出た時に壁も出す")]
     public bool wallOnEnable;
     public float wallFadeTime = 0.8f;
+    [Tooltip("課題の前に壁の向こうへこのm以上出たら扉を開ける")]
+    public float overPassDist = 0.6f;
     [Header("地面の矢印")]
     public GameObject arrows;
     [Tooltip("ここ（次の看板）に近づいたら矢印を消す")]
@@ -72,6 +74,7 @@ public class FuwaTutorialGoal : UdonSharpBehaviour
     private float _plugA, _plugL, _plugB;
 
     private bool _inited, _wallShown, _passed;
+    private float _againAt;
     private float _wallT = -1f;
     private Vector3 _gatePos, _gateFwd;
     private void Init()
@@ -193,7 +196,16 @@ public class FuwaTutorialGoal : UdonSharpBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (_cleared || ball == null || other == null || other.gameObject != ball.gameObject) return;
+        if (ball == null || other == null || other.gameObject != ball.gameObject) return;
+        // クリア済みの輪：通したら反応だけ（キラキラと音。2026-11-25 てじゃ）
+        if (_cleared)
+        {
+            if (Time.time < _againAt) return;
+            _againAt = Time.time + 0.5f;
+            if (clearFx != null) { clearFx.transform.position = transform.position; clearFx.Play(); }
+            if (sfxClear != null) sfxClear.Play();
+            return;
+        }
         Clear();
     }
 
@@ -232,6 +244,17 @@ public class FuwaTutorialGoal : UdonSharpBehaviour
             bool here = ball.GetRespawnPoint() == trySpot;
             if (here && !_wasHere && _cleared && monster.IsDefeated()) monster.Revive();
             _wasHere = here;
+        }
+        // 課題の前に何かで壁を越えちゃった人：扉を開けて先の看板・輪も出す（救済で開いた時と同じ、クリアのはんこはなし）
+        //  （2026-11-25 てじゃ「課題前に壁こえちゃった時」→ B 開けちゃう。戻ってふわふわを取りに行けるように）
+        if (!_opened && gateBlock != null)
+        {
+            VRCPlayerApi lpo = Networking.LocalPlayer;
+            if (lpo != null)
+            {
+                Vector3 d = lpo.GetPosition() - _gatePos;
+                if (Vector3.Dot(d, _gateFwd) > overPassDist && Mathf.Abs(d.y) < 5f && new Vector2(d.x, d.z).sqrMagnitude < 64f) { Open(); return; }
+            }
         }
         if (_opened || ball == null) return;
         if (ball.GetRespawnPoint() != trySpot) return;
