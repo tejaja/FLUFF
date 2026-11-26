@@ -172,6 +172,10 @@ public static class FuwaCourse2_1Builder
     // 迂回路の浮島：場所（中心線の s と横）、半径。BridgeIsland() で作る
     public static float BridgeIslandS = 8.0f, BridgeIslandLat = 9.6f, BridgeIslandR = 1.8f;   // 浮島（いまは使っていない）
     public static float BridgeBendS = 12.5f, BridgeBendLat = 9.0f, BridgeStraight = 4.5f;
+    // 2026-11-26 てじゃ「2-1の最初の曲がった木の端のコーナーの内側、重なり方が不自然」：曲がり目の中心線の半径がほぼ1.5m（幅3mの半分）で、
+    //  内側のへりが1点に集まって板が折り返して重なっていた → 中心線をならして、半径をこれ以上に（内側のへりの半径＝これ−1.5m）
+    public static float B1MinR = 2.6f;
+    static string b1BendLog = "";
     // 谷の上の木の橋（M2_Bridge）：両はしで道の向きにそろえる長さ（橋の長さに対する割合。小さいほどまっすぐ）
     public static float BridgeEndPull = 0.12f, CpMushBack = 0.7f;
     // 右岸の道を川の終わりから谷の上へのばす長さ・木の橋が青い道の先っぽにのる長さ・その所の板の持ち上げ
@@ -403,12 +407,39 @@ public static class FuwaCourse2_1Builder
             // 長さの表（u＝はじめからの長さ → t）
             var tu = new List<float> { 0f }; var tt = new List<float> { 0f };
             for (int k = 1; k <= 400; k++) { float t2 = k / 400f; tu.Add(tu[k - 1] + (Bz(t2) - Bz((k - 1) / 400f)).magnitude); tt.Add(t2); }
-            float Lb = tu[400] + BridgeStraight;
-            Func<float, Vector2> At = u =>
+            float Lb0 = tu[400] + BridgeStraight;
+            Func<float, Vector2> At0 = u =>
             {
                 if (u <= BridgeStraight) return SideV + SideD * u;
                 float uc = u - BridgeStraight; int k = 1; while (k < 400 && tu[k] < uc) k++; return Bz(Mathf.Lerp(tt[k - 1], tt[k], Mathf.InverseLerp(tu[k - 1], tu[k], uc)));
             };
+            // 2026-11-26 曲がり目をならす（B1MinR）：0.1m おきの点にして、まっすぐの所（＋0.5m）と最後の 0.3m は動かさず、
+            //  残りを「両どなりのまん中へ半分寄せる」をくりかえす。いちばんきつい所の半径が B1MinR 以上になったらやめる
+            var bp = new List<Vector2>(); int nb = Mathf.CeilToInt(Lb0 / 0.1f);
+            for (int k = 0; k <= nb; k++) bp.Add(At0(Lb0 * k / nb));
+            int fix0 = Mathf.CeilToInt((BridgeStraight + 0.5f) / (Lb0 / nb)), fix1 = nb - 3;
+            float MinR()
+            {
+                float mr = float.MaxValue;
+                for (int k = 1; k < nb; k++)
+                {
+                    Vector2 a = bp[k - 1], b = bp[k], c = bp[k + 1];
+                    float cr = Mathf.Abs((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x));
+                    if (cr < 1e-7f) continue;
+                    mr = Mathf.Min(mr, (b - a).magnitude * (c - b).magnitude * (c - a).magnitude / (2f * cr));
+                }
+                return mr;
+            }
+            float b1r0 = MinR(); int iters = 0;
+            while (MinR() < B1MinR && iters < 4000)
+            {
+                for (int k = Mathf.Max(1, fix0); k < fix1; k++) bp[k] = Vector2.Lerp(bp[k], (bp[k - 1] + bp[k + 1]) * 0.5f, 0.5f);
+                iters++;
+            }
+            b1BendLog = "木の橋の曲がり目の半径 " + b1r0.ToString("F2") + "→" + MinR().ToString("F2") + "m（" + iters + "回）";
+            var bu = new List<float> { 0f }; for (int k = 1; k <= nb; k++) bu.Add(bu[k - 1] + (bp[k] - bp[k - 1]).magnitude);
+            float Lb = bu[nb];
+            Func<float, Vector2> At = u => { int k = 1; while (k < nb && bu[k] < u) k++; return Vector2.Lerp(bp[k - 1], bp[k], Mathf.InverseLerp(bu[k - 1], bu[k], u)); };
             // 高さ：岩の穴を出るまで（ツタから 2.6m）は床の高さ、そこから渡り場まで同じ傾き
             float uOut = 2.6f;
             float hA = StartH - 0.01f, hE = BankTop - 0.01f;
@@ -882,7 +913,7 @@ public static class FuwaCourse2_1Builder
         FuwaStage2Static.Apply(root);
         Debug.Log(FuwaWindDecalHeight.BakeAll(root));   // 2026-11-15 風の地面の模様：地面の高さマップ（アバターに写らない）
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
-        return "[2–1] 長さ " + sEnd.ToString("F0") + "m  台→池 " + sPlaza1.ToString("F1") + " 川 " + sPool1.ToString("F1") + "–" + sRiver1.ToString("F1")
+        return "[2–1] " + b1BendLog + " 長さ " + sEnd.ToString("F0") + "m  台→池 " + sPlaza1.ToString("F1") + " 川 " + sPool1.ToString("F1") + "–" + sRiver1.ToString("F1")
             + " 蓮 " + sPond0.ToString("F1") + "–" + sPond1.ToString("F1") + " 貝の道 " + sWalk0.ToString("F1") + "–" + sWalk1.ToString("F1") + " 滝の道 " + sF0.ToString("F1") + "–" + sF1.ToString("F1") + " ゴール " + sGoal0.ToString("F1");
     }
 
