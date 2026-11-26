@@ -968,7 +968,11 @@ public static class FuwaPlaygroundBuilder
         // 溶岩の面（平らな円盤）
         var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder); disc.name = "Lava"; Object.DestroyImmediate(disc.GetComponent<Collider>());
         disc.transform.SetParent(root, false); disc.transform.localPosition = new Vector3(0f, lavaY * 0.5f, 0f); disc.transform.localScale = new Vector3(LavaPoolR * 2.1f, lavaY * 0.5f, LavaPoolR * 2.1f);
-        disc.GetComponent<MeshRenderer>().sharedMaterial = lavaMat;
+        // 運べるので模様は物の座標で（2026-11-27 てじゃ「運ぶ時に模様が違和感」）：2–2 の溶岩マテリアルを写した Playground_Lava（シェーダー FuwaCourse/LavaObject）
+        var pMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Playground_Lava.mat");
+        if (pMat == null) { pMat = new Material(lavaMat) { name = "Playground_Lava" }; AssetDatabase.CreateAsset(pMat, "Assets/FuwaCourse/Materials/Playground_Lava.mat"); }
+        pMat.shader = Shader.Find("FuwaCourse/LavaObject"); pMat.CopyPropertiesFromMaterial(lavaMat); pMat.SetFloat("_ObjectSpace", 1f); EditorUtility.SetDirty(pMat);
+        disc.GetComponent<MeshRenderer>().sharedMaterial = pMat;
         var dcol = disc.AddComponent<MeshCollider>(); dcol.sharedMesh = disc.GetComponent<MeshFilter>().sharedMesh; dcol.convex = true; disc.layer = 11;
         LavaRimRocks(root, rockMesh, rockMat);
         var surface = new GameObject("Surface").transform; surface.SetParent(root, false); surface.localPosition = new Vector3(0f, lavaY, 0f);

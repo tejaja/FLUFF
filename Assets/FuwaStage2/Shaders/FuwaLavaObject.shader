@@ -1,0 +1,122 @@
+// FuwaCourse/Lava の運べる物用（あそびばの溶岩だまり）。模様を物の座標で取って、バッチングしない。中身は FuwaLava.shader と同じ（直す時は両方）
+// 2–2 の溶岩（穴・みぞ・落ちる所。2026-10-31）。火山（FuwaCourse/Volcano）の溶岩と同じ色と模様で、光を受けず自分で光る。
+// UV は使わずワールド座標で模様を取るので、箱や円盤でも伸びない。上向きの面はゆっくりうごめき、横向きの面は下へ流れる。Static にしても同じ。
+Shader "FuwaCourse/LavaObject"
+{
+    Properties
+    {
+        [NoScaleOffset] _FlowTex ("溶岩の模様 (R 明暗 G 筋 B かさぶた、継ぎ目なし)", 2D) = "gray" {}
+        [HDR] _LavaHot ("いちばん熱い色", Color) = (1.2, 0.3, 0.06, 1)
+        [HDR] _LavaMid ("ふつうの色", Color) = (1.0, 0.085, 0.02, 1)
+        [HDR] _LavaDark ("暗い色", Color) = (0.5, 0.025, 0.012, 1)
+        _CrustColor ("かさぶたの色", Color) = (0.2, 0.07, 0.06, 1)
+        _Crust ("かさぶたの濃さ（上向きの面だけ）", Range(0,1)) = 0.9
+        _Scale ("模様の数（/m）", Float) = 0.28
+        _PoolSpeed ("上向きの面の動き", Float) = 0.016
+        _FallSpeed ("横向きの面の流れる速さ（模様 / 秒）", Float) = 0.5
+        _Wave ("垂れる溶岩のゆれ（0 でなし。_WaveTop からの深さに比例）", Float) = 0
+        _WaveSpeed ("ゆれの速さ", Float) = 0.9
+        _WaveTop ("ゆれの根元の高さ（ワールド y）", Float) = 0
+        _Fray ("先のこの割合でちぎれて消える（uv.x が根元 0〜先 1、uv.y がふちにそった長さ m。0 でなし）", Range(0,1)) = 0
+        _FrayColor ("ちぎれる所の色", Color) = (1, 0.6, 0.2, 1)
+        _TimeAdd ("時間を足す（撮影用）", Float) = 0
+        // 2026-11-27 てじゃ「あそびばの溶岩、運ぶ時に模様が違和感」：ワールド座標の模様だと、運ぶと模様がその場に残って中をすべって見えた → 運べる物は物の座標で
+        [Toggle] _ObjectSpace ("模様を物にくっつける（運べる物用。1 なら物の座標、0 ならワールド座標）", Float) = 1
+    }
+    SubShader
+    {
+        // 物の座標を使うので、まとめて描く（ダイナミックバッチング）とワールド座標に焼かれて模様がまたすべる → バッチングなし
+        Tags { "RenderType"="Opaque" "Queue"="Geometry" "DisableBatching"="True" }
+        Pass
+        {
+            Tags { "LightMode"="ForwardBase" }
+            CGPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            #pragma multi_compile_fog
+            #include "UnityCG.cginc"
+            #include "FuwaFireFar.cginc"
+
+            sampler2D _FlowTex;
+            half4 _LavaHot, _LavaMid, _LavaDark;
+            fixed4 _CrustColor;
+            half _Crust;
+            float _Scale, _PoolSpeed, _FallSpeed, _Wave, _WaveSpeed, _WaveTop, _Fray;
+            fixed4 _FrayColor;
+            float _TimeAdd, _ObjectSpace;
+
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct v2f { float4 pos : SV_POSITION; float3 wp : TEXCOORD0; float3 wn : TEXCOORD1; UNITY_FOG_COORDS(2) float2 fray : TEXCOORD3; float3 pp : TEXCOORD4; UNITY_VERTEX_OUTPUT_STEREO };
+
+            v2f vert (appdata v)
+            {
+                v2f o;
+                UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
+                o.fray = v.uv;
+                o.wp = mul(unity_ObjectToWorld, v.vertex).xyz;
+                // 模様を取る位置：ふつうはワールド座標。運べる物は物の座標（大きさはワールドと同じ m になるよう拡大率をかける）
+                float3 osc = float3(length(unity_ObjectToWorld._m00_m10_m20), length(unity_ObjectToWorld._m01_m11_m21), length(unity_ObjectToWorld._m02_m12_m22));
+                o.pp = _ObjectSpace > 0.5 ? v.vertex.xyz * osc : o.wp;
+                if (_Wave > 0.0001)
+                {
+                    // 根元は動かず、先へ行くほどゆっくり伸び縮みして横へゆれる。表と裏で同じだけ動くように法線は使わない
+                    float d = max(0.0, _WaveTop - o.wp.y), t = _Time.y * _WaveSpeed;
+                    float a = (o.wp.x + o.wp.z) * 0.9;
+                    o.wp.y -= d * _Wave * (0.5 + 0.5 * sin(t + a));
+                    o.wp.x += d * _Wave * 0.35 * sin(t * 1.7 + a * 1.8 + d * 1.2);
+                    o.wp.z += d * _Wave * 0.35 * sin(t * 1.3 - a * 1.4 + d * 0.9);
+                }
+                o.pos = UnityWorldToClipPos(o.wp);
+                o.wn = UnityObjectToWorldNormal(v.normal);
+                UNITY_TRANSFER_FOG(o, o.pos);
+                return o;
+            }
+
+            fixed4 frag (v2f i) : SV_Target
+            {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
+                float t = _Time.y + _TimeAdd;
+                half up = step(0.5, abs(normalize(i.wn).y));
+                fixed4 f1, f2;
+                if (up > 0.5)
+                {
+                    float2 xz = i.pp.xz * _Scale;
+                    f1 = tex2D(_FlowTex, xz + float2(t * _PoolSpeed, t * _PoolSpeed * 1.4));
+                    f2 = tex2D(_FlowTex, xz * 1.9 + float2(-t * _PoolSpeed * 1.6, t * _PoolSpeed * 0.8));
+                }
+                else
+                {
+                    // 横向き：下へ流れる。縦に長い模様
+                    float h = (i.pp.x + i.pp.z) * _Scale * 1.6;
+                    f1 = tex2D(_FlowTex, float2(h, i.pp.y * _Scale * 0.45 + t * _FallSpeed));
+                    f2 = tex2D(_FlowTex, float2(h * 2.0 + 0.37, i.pp.y * _Scale * 0.7 + t * _FallSpeed * 1.9));
+                }
+                half h2 = saturate(f1.r * 0.7 + f2.r * 0.32 + f2.g * 0.22 - 0.3);
+                half hq = h2 * 3; h2 = (floor(hq) + smoothstep(0.3, 0.7, frac(hq))) / 3;
+                half3 c = h2 < 0.5 ? lerp(_LavaDark.rgb, _LavaMid.rgb, h2 * 2) : lerp(_LavaMid.rgb, _LavaHot.rgb, (h2 - 0.5) * 2);
+                half crust = up * smoothstep(0.5, 0.65, f1.b) * smoothstep(0.62, 0.42, f1.r) * (1 - f2.g);
+                c = lerp(c, _CrustColor.rgb, crust * _Crust);
+                if (_Fray > 0.001)
+                {
+                    // 水の滝（FuwaStage2/Waterfall の _FrayLen）と同じ消え方を、粘り気のある大きなかたまりで（2026-11-03 てじゃ「もっと荒くしてトゲを滑らかな感じにして粘度たかそうに」）。
+                    // ぼかした段のテクスチャを低い周波数で読むので、ふちが丸くなる。R は 0.3〜0.7 くらいなので広げて使う。かたまりが下へ約 0.6m/s で流れて、先へ行くほど細って消える（てじゃ「垂れて下に消える感じがしない」）
+                    float tf = saturate((i.fray.x - (1 - _Fray)) / _Fray);
+                    float n1 = tex2Dlod(_FlowTex, float4(i.fray.y * 0.3, i.pp.y * 0.17 + t * _FallSpeed * 1.0, 0, 3)).r;
+                    float n2 = tex2Dlod(_FlowTex, float4(i.fray.y * 0.7 + 0.37, i.pp.y * 0.25 + t * _FallSpeed * 1.5, 0, 3)).r;
+                    float nf = saturate((n1 * 0.65 + n2 * 0.35 - 0.37) / 0.26);
+                    clip(nf - smoothstep(0.1, 1.0, tf) * 1.05 + 0.001);   // + にしないと、消え始める前の所にも点の穴があいた
+                    c = lerp(c, _FrayColor.rgb, smoothstep(0.05, 0.75, tf) * 0.85);
+                }
+                c = FuwaLavaCalm(c, FuwaFireFar(i.wp));
+                fixed4 o = fixed4(c, 1);
+                UNITY_APPLY_FOG(i.fogCoord, o);
+                return o;
+            }
+            ENDCG
+        }
+        // 深度テクスチャに入れる（入らないと、深度で描くふわふわのウソ影が溶岩の上に出ない。2026-10-31 てじゃ「影がないから高く見える」）
+        UsePass "FuwaCourse/ToonLit/SHADOWCASTER"
+    }
+    FallBack Off
+}

@@ -19,6 +19,8 @@ Shader "FuwaCourse/Lava"
         _Fray ("先のこの割合でちぎれて消える（uv.x が根元 0〜先 1、uv.y がふちにそった長さ m。0 でなし）", Range(0,1)) = 0
         _FrayColor ("ちぎれる所の色", Color) = (1, 0.6, 0.2, 1)
         _TimeAdd ("時間を足す（撮影用）", Float) = 0
+        // 2026-11-27 てじゃ「あそびばの溶岩、運ぶ時に模様が違和感」：ワールド座標の模様だと、運ぶと模様がその場に残って中をすべって見えた → 運べる物は物の座標で
+        [Toggle] _ObjectSpace ("模様を物にくっつける（運べる物用。1 なら物の座標、0 ならワールド座標）", Float) = 0
     }
     SubShader
     {
@@ -39,10 +41,10 @@ Shader "FuwaCourse/Lava"
             half _Crust;
             float _Scale, _PoolSpeed, _FallSpeed, _Wave, _WaveSpeed, _WaveTop, _Fray;
             fixed4 _FrayColor;
-            float _TimeAdd;
+            float _TimeAdd, _ObjectSpace;
 
             struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            struct v2f { float4 pos : SV_POSITION; float3 wp : TEXCOORD0; float3 wn : TEXCOORD1; UNITY_FOG_COORDS(2) float2 fray : TEXCOORD3; UNITY_VERTEX_OUTPUT_STEREO };
+            struct v2f { float4 pos : SV_POSITION; float3 wp : TEXCOORD0; float3 wn : TEXCOORD1; UNITY_FOG_COORDS(2) float2 fray : TEXCOORD3; float3 pp : TEXCOORD4; UNITY_VERTEX_OUTPUT_STEREO };
 
             v2f vert (appdata v)
             {
@@ -51,6 +53,9 @@ Shader "FuwaCourse/Lava"
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 o.fray = v.uv;
                 o.wp = mul(unity_ObjectToWorld, v.vertex).xyz;
+                // 模様を取る位置：ふつうはワールド座標。運べる物は物の座標（大きさはワールドと同じ m になるよう拡大率をかける）
+                float3 osc = float3(length(unity_ObjectToWorld._m00_m10_m20), length(unity_ObjectToWorld._m01_m11_m21), length(unity_ObjectToWorld._m02_m12_m22));
+                o.pp = _ObjectSpace > 0.5 ? v.vertex.xyz * osc : o.wp;
                 if (_Wave > 0.0001)
                 {
                     // 根元は動かず、先へ行くほどゆっくり伸び縮みして横へゆれる。表と裏で同じだけ動くように法線は使わない
@@ -74,16 +79,16 @@ Shader "FuwaCourse/Lava"
                 fixed4 f1, f2;
                 if (up > 0.5)
                 {
-                    float2 xz = i.wp.xz * _Scale;
+                    float2 xz = i.pp.xz * _Scale;
                     f1 = tex2D(_FlowTex, xz + float2(t * _PoolSpeed, t * _PoolSpeed * 1.4));
                     f2 = tex2D(_FlowTex, xz * 1.9 + float2(-t * _PoolSpeed * 1.6, t * _PoolSpeed * 0.8));
                 }
                 else
                 {
                     // 横向き：下へ流れる。縦に長い模様
-                    float h = (i.wp.x + i.wp.z) * _Scale * 1.6;
-                    f1 = tex2D(_FlowTex, float2(h, i.wp.y * _Scale * 0.45 + t * _FallSpeed));
-                    f2 = tex2D(_FlowTex, float2(h * 2.0 + 0.37, i.wp.y * _Scale * 0.7 + t * _FallSpeed * 1.9));
+                    float h = (i.pp.x + i.pp.z) * _Scale * 1.6;
+                    f1 = tex2D(_FlowTex, float2(h, i.pp.y * _Scale * 0.45 + t * _FallSpeed));
+                    f2 = tex2D(_FlowTex, float2(h * 2.0 + 0.37, i.pp.y * _Scale * 0.7 + t * _FallSpeed * 1.9));
                 }
                 half h2 = saturate(f1.r * 0.7 + f2.r * 0.32 + f2.g * 0.22 - 0.3);
                 half hq = h2 * 3; h2 = (floor(hq) + smoothstep(0.3, 0.7, frac(hq))) / 3;
@@ -95,8 +100,8 @@ Shader "FuwaCourse/Lava"
                     // 水の滝（FuwaStage2/Waterfall の _FrayLen）と同じ消え方を、粘り気のある大きなかたまりで（2026-11-03 てじゃ「もっと荒くしてトゲを滑らかな感じにして粘度たかそうに」）。
                     // ぼかした段のテクスチャを低い周波数で読むので、ふちが丸くなる。R は 0.3〜0.7 くらいなので広げて使う。かたまりが下へ約 0.6m/s で流れて、先へ行くほど細って消える（てじゃ「垂れて下に消える感じがしない」）
                     float tf = saturate((i.fray.x - (1 - _Fray)) / _Fray);
-                    float n1 = tex2Dlod(_FlowTex, float4(i.fray.y * 0.3, i.wp.y * 0.17 + t * _FallSpeed * 1.0, 0, 3)).r;
-                    float n2 = tex2Dlod(_FlowTex, float4(i.fray.y * 0.7 + 0.37, i.wp.y * 0.25 + t * _FallSpeed * 1.5, 0, 3)).r;
+                    float n1 = tex2Dlod(_FlowTex, float4(i.fray.y * 0.3, i.pp.y * 0.17 + t * _FallSpeed * 1.0, 0, 3)).r;
+                    float n2 = tex2Dlod(_FlowTex, float4(i.fray.y * 0.7 + 0.37, i.pp.y * 0.25 + t * _FallSpeed * 1.5, 0, 3)).r;
                     float nf = saturate((n1 * 0.65 + n2 * 0.35 - 0.37) / 0.26);
                     clip(nf - smoothstep(0.1, 1.0, tf) * 1.05 + 0.001);   // + にしないと、消え始める前の所にも点の穴があいた
                     c = lerp(c, _FrayColor.rgb, smoothstep(0.05, 0.75, tf) * 0.85);
