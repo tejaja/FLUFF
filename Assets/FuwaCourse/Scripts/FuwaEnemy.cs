@@ -509,7 +509,12 @@ public class FuwaEnemy : UdonSharpBehaviour
                 // 跳ねの高さ：けだまの所を通る時に、けだまの高さになるように（高すぎるけだまには届かない）
                 float xb = Mathf.Clamp(along / (dashSpeed * _dashDuration), 0.2f, 0.9f);
                 float need = ball.transform.position.y - (_groundY + bodyCenterUp);
-                _dashHop = Mathf.Clamp(need / (4f * xb * (1f - xb)), hopHeight * 0.6f, maxHopHeight);
+                // 跳べる高さの上限は自分のアバターの背に合わせる（今の maxHopHeight は目の高さ 1m の時。背が高い人がけだまを顔の高さで運ぶと届かなかった。
+                // 2026-11-26 てじゃ「背が高いと簡単にスルーできちゃう」「今の高さは目が1mでいい」）。まものは自分の画面だけで動くので人ごとに変わってよい
+                float eyeK = 1f;
+                VRCPlayerApi lpH = Networking.LocalPlayer;
+                if (lpH != null && lpH.IsValid()) eyeK = Mathf.Clamp(lpH.GetAvatarEyeHeightAsMeters() / 1.0f, 1f, 3f);
+                _dashHop = Mathf.Clamp(need / (4f * xb * (1f - xb)), hopHeight * 0.6f, maxHopHeight * eyeK);
                 _hitThisDash = false;
                 _hitBallThisDash = false;
                 _dashMul = 1f;
