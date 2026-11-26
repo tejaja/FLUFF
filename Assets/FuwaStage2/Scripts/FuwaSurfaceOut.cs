@@ -18,15 +18,16 @@ public class FuwaSurfaceOut : UdonSharpBehaviour
     [Tooltip("この秒数つづけて乗っていたらアウト（一瞬かすっただけは無視）")]
     public float holdTime = 0.15f;
 
+    [Tooltip("この箱（ワールド座標）の中にいる時だけ調べる。ビルダーが火山の当たりの大きさ＋2m で入れる（実行中に Collider.bounds を取ると、ステージ2が隠れていて大きさ0だった。2026-11-26）")]
+    public Vector3 areaMin, areaMax;
+
     private Collider _col;
-    private Bounds _b;
     private float _since = -1f;
     private int _mask;
 
     private void Start()
     {
         _col = GetComponent<Collider>();
-        if (_col != null) { _b = _col.bounds; _b.Expand(2f); }
         // プレイヤーの層（9 Player, 10 PlayerLocal）とトリガーは見ない
         _mask = ~((1 << 9) | (1 << 10));
     }
@@ -37,7 +38,7 @@ public class FuwaSurfaceOut : UdonSharpBehaviour
         VRCPlayerApi lp = Networking.LocalPlayer;
         if (lp == null) return;
         Vector3 p = lp.GetPosition();
-        if (p.y >= maxFeetY || !_b.Contains(p)) { _since = -1f; return; }
+        if (p.y >= maxFeetY || p.x < areaMin.x || p.x > areaMax.x || p.z < areaMin.z || p.z > areaMax.z || p.y < areaMin.y) { _since = -1f; return; }
         RaycastHit hit;
         bool onMe = Physics.Raycast(p + Vector3.up * 0.4f, Vector3.down, out hit, probe, _mask, QueryTriggerInteraction.Ignore) && hit.collider == _col;
         if (!onMe) { _since = -1f; return; }

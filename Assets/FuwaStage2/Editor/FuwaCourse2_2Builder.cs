@@ -2966,10 +2966,19 @@ public static class FuwaCourse2_2Builder
         var so = body.GetComponent<FuwaSurfaceOut>();
         if (!so) so = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaSurfaceOut>(body.gameObject);
         so.ball = ballProxy ? ballProxy : ball;
-        // てじゃ「まったくのれないのもやだな」：まもの広場の床（Path5 のはじまり）より 3m 下＝道より下のすそだけアウト
-        var p5 = root.Find("Path/Path5")?.GetComponent<Collider>();
-        so.maxFeetY = p5 ? p5.bounds.min.y - 2f : body.position.y - 3f;
+        // てじゃ「まったくのれないのもやだな」→ 2026-11-26 てじゃがスクショに引いた緑の線（y -158.6、まもの広場の床の約4.5m下）より下の山肌だけアウト
+        // 大きさはメッシュから出す（Collider.bounds は物が隠れていると大きさ0になる）
+        var p5 = root.Find("Path/Path5")?.GetComponent<MeshCollider>();
+        so.maxFeetY = p5 && p5.sharedMesh ? WorldBounds(p5.transform, p5.sharedMesh.bounds).min.y - 4.5f : body.position.y - 5.3f;
+        var vb = WorldBounds(body, body.GetComponent<MeshCollider>().sharedMesh.bounds); vb.Expand(4f);
+        so.areaMin = vb.min; so.areaMax = vb.max;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(so); FuwaStage2WaterTest.NoSync(so);
+    }
+    static Bounds WorldBounds(Transform t, Bounds lb)
+    {
+        var e = lb.extents; var b = new Bounds(t.TransformPoint(lb.center), Vector3.zero);
+        for (int k = 0; k < 8; k++) b.Encapsulate(t.TransformPoint(lb.center + new Vector3((k & 1) == 0 ? -e.x : e.x, (k & 2) == 0 ? -e.y : e.y, (k & 4) == 0 ? -e.z : e.z)));
+        return b;
     }
     static void Hazard(Transform root, string name, Vector3 lp, Vector3 size, bool player, Quaternion? rot = null)
     {
