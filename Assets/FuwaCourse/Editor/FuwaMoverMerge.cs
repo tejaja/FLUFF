@@ -56,8 +56,25 @@ public static class FuwaMoverMerge
         {
             if (!map.TryGetValue(f.comp, out var co) || !(co is FuwaFarShadows fs) || !fs) continue;
             Undo.RecordObject(fs, "部品まとめを戻す");
-            fs.targets = f.targets.Select(k => map.TryGetValue(k, out var o) ? o as Renderer : null).ToArray();
-            fs.centers = f.centers.ToArray(); fs.radii = f.radii.ToArray(); fs.targetStage = f.stages.ToArray();
+            // 2026-11-26 記録をそのまま戻すと、まとめた後に一覧から外した物（チュートリアルの看板11枚の影、11/22）が戻ってしまった
+            //  → 記録の物は「今も一覧にある」か「まとめで __Merged_ に置きかわった元」だけ戻す。まとめた後に足された物（__Merged_ 以外）は残す
+            var now = fs.targets ?? new Renderer[0];
+            var nowSet = new HashSet<Renderer>(now.Where(x => x));
+            var srcSet = new HashSet<Renderer>(rec.disabled.Select(k => map.TryGetValue(k, out var o) ? o as Renderer : null).Where(x => x));
+            var T = new List<Renderer>(); var C = new List<Vector3>(); var R = new List<float>(); var S = new List<int>(); var seen = new HashSet<Renderer>();
+            for (int i = 0; i < f.targets.Count; i++)
+            {
+                var rr = map.TryGetValue(f.targets[i], out var o) ? o as Renderer : null;
+                if (rr == null || !(nowSet.Contains(rr) || srcSet.Contains(rr)) || !seen.Add(rr)) continue;
+                T.Add(rr); C.Add(f.centers[i]); R.Add(f.radii[i]); S.Add(i < f.stages.Count ? f.stages[i] : 0);
+            }
+            for (int i = 0; i < now.Length; i++)
+            {
+                var rr = now[i]; if (rr == null || rr.name.StartsWith("__Merged_") || !seen.Add(rr)) continue;
+                T.Add(rr); C.Add(fs.centers != null && i < fs.centers.Length ? fs.centers[i] : rr.bounds.center); R.Add(fs.radii != null && i < fs.radii.Length ? fs.radii[i] : rr.bounds.extents.magnitude);
+                S.Add(fs.targetStage != null && i < fs.targetStage.Length ? fs.targetStage[i] : 0);
+            }
+            fs.targets = T.ToArray(); fs.centers = C.ToArray(); fs.radii = R.ToArray(); fs.targetStage = S.ToArray();
             UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(fs); EditorUtility.SetDirty(fs);
         }
         foreach (var k in rec.disabled) if (map.TryGetValue(k, out var o) && o is Renderer r && r) { Undo.RecordObject(r, "部品まとめを戻す"); r.enabled = true; n++; }
