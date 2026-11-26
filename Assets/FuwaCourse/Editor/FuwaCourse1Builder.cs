@@ -274,10 +274,9 @@ public static class FuwaCourse1Builder
     {
         float k = TailPsWidth / 2.6f;
         var sh = ps.shape; sh.scale = new Vector3(sh.scale.x, sh.scale.y, TailPsWidth);
-        var em = ps.emission; em.rateOverTimeMultiplier *= k;
-        var mm = ps.main; mm.maxParticles = Mathf.CeilToInt(8 * k);
+        // 粒の数は今まで通り（てじゃ「数はふやさなくてもいい、幅だけで」）
         var lv = ps.transform.Find("WindLeaves")?.GetComponent<ParticleSystem>();
-        if (lv != null) { var ls = lv.shape; ls.scale = new Vector3(ls.scale.x, ls.scale.y, TailPsWidth); var le = lv.emission; le.rateOverTimeMultiplier = 1.5f * k; }
+        if (lv != null) { var ls = lv.shape; ls.scale = new Vector3(ls.scale.x, ls.scale.y, TailPsWidth); var le = lv.emission; }
     }
 
     // 追い風の箱・粒・床のグラデだけ、今の TailA〜TailB に合わせ直す（作り直さない：Zone は NetworkIDs・吹き流しなどから参照されているので）。
