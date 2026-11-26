@@ -146,6 +146,12 @@ public static class SpiderWebBuild
         {
             Undo.RecordObject(b.webRenderer, "Spider Web");
             b.webRenderer.sharedMaterial = mat;
+            // 2026-11-26 糸のメッシュ版（SpiderWebLines）にしてある巣は、メッシュも作り直す
+            if (mat.shader != null && mat.shader.name == "FuwaCourse/SpiderWebLines" && b.webRenderer.GetComponent<MeshFilter>() is MeshFilter wmf)
+            {
+                Undo.RecordObject(wmf, "Spider Web");
+                wmf.sharedMesh = SpiderWebLinesMesh.BuildMesh(mat);
+            }
             var wt = b.webRenderer.transform;
             Undo.RecordObject(wt, "Spider Web");
             Vector3 ps = wt.parent != null ? wt.parent.lossyScale : Vector3.one;

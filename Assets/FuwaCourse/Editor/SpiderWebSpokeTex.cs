@@ -71,7 +71,7 @@ public static class SpiderWebSpokeTex
 
     // ───── 以下、FuwaSpiderWeb.shader と同じ式 ─────
 
-    static float SpokeAngle(Material m, int k, int n)
+    internal static float SpokeAngle(Material m, int k, int n)
     {
         float seed = m.GetFloat("_Seed");
         float j = Mathf.Sin(k * 1.93f + seed * 0.77f) * 0.18f;
@@ -80,7 +80,7 @@ public static class SpiderWebSpokeTex
 
     static float Cross(Vector2 a, Vector2 b) => a.x * b.y - a.y * b.x;
 
-    static float OuterRadius(Material m, int k, Vector2 d)
+    internal static float OuterRadius(Material m, int k, Vector2 d)
     {
         int fn = Mathf.RoundToInt(m.GetFloat("_FrameN"));
         if (m.GetFloat("_FrameN") > 2.5f)
