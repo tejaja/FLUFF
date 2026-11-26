@@ -5357,7 +5357,7 @@ ParticleSystem:
     donutRadius: 0.2
     m_Position: {x: -0.92000026, y: -0, z: 0.00000021934513}
     m_Rotation: {x: 0, y: 0, z: 0}
-    m_Scale: {x: 2.3, y: 3.2, z: 2.6}
+    m_Scale: {x: 2.3, y: 3.2, z: 5}
     placementMode: 0
     m_MeshMaterialIndex: 0
     m_MeshNormalOffset: 0
@@ -5555,7 +5555,7 @@ ParticleSystem:
     rateOverTime:
       serializedVersion: 2
       minMaxState: 0
-      scalar: 1.5
+      scalar: 2.8846154
       minScalar: 10
       maxCurve:
         serializedVersion: 2
@@ -44561,7 +44561,7 @@ ParticleSystem:
         m_RotationOrder: 4
     randomizeRotationDirection: 0
     gravitySource: 0
-    maxNumParticles: 8
+    maxNumParticles: 16
     customEmitterVelocity: {x: 0, y: 0, z: 0}
     size3D: 0
     rotation3D: 0
@@ -44629,7 +44629,7 @@ ParticleSystem:
     donutRadius: 0.2
     m_Position: {x: -0.92000026, y: -0, z: 0.00000021934513}
     m_Rotation: {x: 0, y: 0, z: 0}
-    m_Scale: {x: 1.534, y: 3.2, z: 2.6}
+    m_Scale: {x: 1.534, y: 3.2, z: 5}
     placementMode: 0
     m_MeshMaterialIndex: 0
     m_MeshNormalOffset: 0
@@ -44827,7 +44827,7 @@ ParticleSystem:
     rateOverTime:
       serializedVersion: 2
       minMaxState: 0
-      scalar: 14.406261
+      scalar: 27.70435
       minScalar: 10
       maxCurve:
         serializedVersion: 2
@@ -123982,6 +123982,14 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 240464251}
     m_Modifications:
+    - target: {fileID: 990551118580852000, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
+      propertyPath: ShapeModule.m_Scale.z
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 990551118580852000, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
+      propertyPath: EmissionModule.rateOverTime.scalar
+      value: 2.8846154
+      objectReference: {fileID: 0}
     - target: {fileID: 2773373826936317626, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
       propertyPath: m_LocalPosition.x
       value: -2.094854
@@ -124025,6 +124033,18 @@ PrefabInstance:
     - target: {fileID: 4235939544162720001, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
       propertyPath: m_Name
       value: Particles4
+      objectReference: {fileID: 0}
+    - target: {fileID: 5041860390865600959, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
+      propertyPath: ShapeModule.m_Scale.z
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5041860390865600959, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
+      propertyPath: InitialModule.maxNumParticles
+      value: 16
+      objectReference: {fileID: 0}
+    - target: {fileID: 5041860390865600959, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
+      propertyPath: EmissionModule.rateOverTime.scalar
+      value: 27.70435
       objectReference: {fileID: 0}
     - target: {fileID: 5340445141755080448, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
       propertyPath: m_Materials.Array.data[1]
@@ -330070,6 +330090,14 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 240464251}
     m_Modifications:
+    - target: {fileID: 990551118580852000, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
+      propertyPath: ShapeModule.m_Scale.z
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 990551118580852000, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
+      propertyPath: EmissionModule.rateOverTime.scalar
+      value: 2.8846154
+      objectReference: {fileID: 0}
     - target: {fileID: 2773373826936317626, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
       propertyPath: m_LocalPosition.x
       value: -1.1197826
@@ -330113,6 +330141,18 @@ PrefabInstance:
     - target: {fileID: 4235939544162720001, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
       propertyPath: m_Name
       value: Particles2
+      objectReference: {fileID: 0}
+    - target: {fileID: 5041860390865600959, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
+      propertyPath: ShapeModule.m_Scale.z
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5041860390865600959, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
+      propertyPath: InitialModule.maxNumParticles
+      value: 16
+      objectReference: {fileID: 0}
+    - target: {fileID: 5041860390865600959, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
+      propertyPath: EmissionModule.rateOverTime.scalar
+      value: 27.70435
       objectReference: {fileID: 0}
     - target: {fileID: 5340445141755080448, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
       propertyPath: m_Materials.Array.data[1]
@@ -875523,6 +875563,14 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 240464251}
     m_Modifications:
+    - target: {fileID: 990551118580852000, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
+      propertyPath: ShapeModule.m_Scale.z
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 990551118580852000, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
+      propertyPath: EmissionModule.rateOverTime.scalar
+      value: 2.8846154
+      objectReference: {fileID: 0}
     - target: {fileID: 2773373826936317626, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
       propertyPath: m_LocalPosition.x
       value: -0.7449528
@@ -875566,6 +875614,18 @@ PrefabInstance:
     - target: {fileID: 4235939544162720001, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
       propertyPath: m_Name
       value: Particles1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5041860390865600959, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
+      propertyPath: ShapeModule.m_Scale.z
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5041860390865600959, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
+      propertyPath: InitialModule.maxNumParticles
+      value: 16
+      objectReference: {fileID: 0}
+    - target: {fileID: 5041860390865600959, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
+      propertyPath: EmissionModule.rateOverTime.scalar
+      value: 27.70435
       objectReference: {fileID: 0}
     - target: {fileID: 5340445141755080448, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
       propertyPath: m_Materials.Array.data[1]
@@ -1297645,6 +1297705,14 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 240464251}
     m_Modifications:
+    - target: {fileID: 990551118580852000, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
+      propertyPath: ShapeModule.m_Scale.z
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 990551118580852000, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
+      propertyPath: EmissionModule.rateOverTime.scalar
+      value: 2.8846154
+      objectReference: {fileID: 0}
     - target: {fileID: 2773373826936317626, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
       propertyPath: m_LocalPosition.x
       value: -1.5701438
@@ -1297688,6 +1297756,18 @@ PrefabInstance:
     - target: {fileID: 4235939544162720001, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
       propertyPath: m_Name
       value: Particles3
+      objectReference: {fileID: 0}
+    - target: {fileID: 5041860390865600959, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
+      propertyPath: ShapeModule.m_Scale.z
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5041860390865600959, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
+      propertyPath: InitialModule.maxNumParticles
+      value: 16
+      objectReference: {fileID: 0}
+    - target: {fileID: 5041860390865600959, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
+      propertyPath: EmissionModule.rateOverTime.scalar
+      value: 27.70435
       objectReference: {fileID: 0}
     - target: {fileID: 5340445141755080448, guid: 6523fe735eef36740914e0fb074ef83c, type: 3}
       propertyPath: m_Materials.Array.data[1]

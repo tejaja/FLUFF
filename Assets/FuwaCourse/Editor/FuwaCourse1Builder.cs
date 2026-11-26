@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -268,6 +268,17 @@ public static class FuwaCourse1Builder
     // ---- ギミック（Gimmicks_Kaze の下に毎回作り直す。見た目の元はコース2・旧コース1から複製） ----
     // 追い風：2.5〜14 → スタート側を削って 2/3 に（2026-11-05 てじゃ「スタート直後は歩く」）。終わりは同じ
     public const float TailA = 6.33f, TailB = 14f;
+    // 追い風の粒を出す幅（道に直角、m）。道（約3m）より左右に1mずつ広く（2026-11-26 てじゃ「追い風が出てる範囲、コース外にもちょっとだけ広げといて」。前は 2.6）
+    public const float TailPsWidth = 5.0f;
+    static void TailPsWiden(ParticleSystem ps)
+    {
+        float k = TailPsWidth / 2.6f;
+        var sh = ps.shape; sh.scale = new Vector3(sh.scale.x, sh.scale.y, TailPsWidth);
+        var em = ps.emission; em.rateOverTimeMultiplier *= k;
+        var mm = ps.main; mm.maxParticles = Mathf.CeilToInt(8 * k);
+        var lv = ps.transform.Find("WindLeaves")?.GetComponent<ParticleSystem>();
+        if (lv != null) { var ls = lv.shape; ls.scale = new Vector3(ls.scale.x, ls.scale.y, TailPsWidth); var le = lv.emission; le.rateOverTimeMultiplier = 1.5f * k; }
+    }
 
     // 追い風の箱・粒・床のグラデだけ、今の TailA〜TailB に合わせ直す（作り直さない：Zone は NetworkIDs・吹き流しなどから参照されているので）。
     // 吹き流し・風車は、参照している箱からの相対位置のまま一緒に動かす
@@ -294,6 +305,7 @@ public static class FuwaCourse1Builder
             ps.transform.localPosition = P(sc, 1.9f); ps.transform.localRotation = R(sc) * Quaternion.Euler(0, 270, 0);
             var sh = ps.shape; sh.scale = new Vector3(seg, 3.2f, 2.6f);
             var em = ps.emission; em.rateOverTimeMultiplier = 90f * seg / 11.5f * 1.2f;
+            TailPsWiden(ps);
             var hl = z.Find("GroundHighlight");
             if (hl != null) PathHighlight(hl, z, Vector3.forward, "Kaze_TailHighlight_" + i, 0.6f, i == 0, i == n - 1, seg * i - seg * 0.5f);
         }
@@ -453,6 +465,7 @@ public static class FuwaCourse1Builder
                 var em = ps.emission; em.rateOverTimeMultiplier = 90f * seg / 11.5f * 1.2f;
                 { var vel = ps.velocityOverLifetime; vel.space = ParticleSystemSimulationSpace.Local; vel.x = 4.5f; var pmm = ps.main; pmm.startLifetime = 0.55f; }   // 区間ごとの道の向きに流す（カーブの外へはみ出さない長さ）
                 { var pm = ps.main; pm.startColor = new Color(1f, 1f, 1f, 0.75f); }
+                TailPsWiden(ps);
                 w.visual = ps.gameObject;
                 // 床のグラデ（横風と同じもの）を、この区間の道に合わせて
                 var hlSrc = tplCross.Find("CrossWind/GroundHighlight");
