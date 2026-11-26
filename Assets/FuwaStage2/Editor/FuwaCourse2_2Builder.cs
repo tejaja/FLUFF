@@ -2966,10 +2966,13 @@ public static class FuwaCourse2_2Builder
         var so = body.GetComponent<FuwaSurfaceOut>();
         if (!so) so = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaSurfaceOut>(body.gameObject);
         so.ball = ballProxy ? ballProxy : ball;
-        // てじゃ「まったくのれないのもやだな」→ 2026-11-26 てじゃの緑の線（y -158.6）→「もうちょい上でもよかった」で2m上げて y -156.6（まもの広場の床の約2.5m下）より下の山肌だけアウト
-        // 大きさはメッシュから出す（Collider.bounds は物が隠れていると大きさ0になる）
-        var p5 = root.Find("Path/Path5")?.GetComponent<MeshCollider>();
-        so.maxFeetY = p5 && p5.sharedMesh ? WorldBounds(p5.transform, p5.sharedMesh.bounds).min.y - 2.5f : body.position.y - 3.3f;
+        // 2026-11-26 てじゃ「やっぱ引っかかりきになるな」「2-2の道の一番高い位置より下は全部アウト」：道（Path の下の当たり）のいちばん高い所より下の山肌はアウト
+        //  大きさはメッシュから出す（Collider.bounds は物が隠れていると大きさ0になる）
+        float topY = float.MinValue;
+        var pathRoot = root.Find("Path");
+        if (pathRoot) foreach (var mc in pathRoot.GetComponentsInChildren<MeshCollider>(true)) if (!mc.isTrigger && mc.sharedMesh) topY = Mathf.Max(topY, WorldBounds(mc.transform, mc.sharedMesh.bounds).max.y);
+        so.maxFeetY = topY > float.MinValue ? topY : body.position.y + 3f;
+        so.copters = Object.FindObjectsOfType<FuwaBambooCopter>(true);   // 竹とんぼを持っている間は無効
         var vb = WorldBounds(body, body.GetComponent<MeshCollider>().sharedMesh.bounds); vb.Expand(4f);
         so.areaMin = vb.min; so.areaMax = vb.max;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(so); FuwaStage2WaterTest.NoSync(so);
