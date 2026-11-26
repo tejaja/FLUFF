@@ -157,6 +157,7 @@ public static class FuwaCourseLite
         var mat = AssetDatabase.LoadAssetAtPath<Material>(MatPath);
         if (mat == null) { mat = new Material(Shader.Find("FuwaCourse/LiteVC")) { name = "CourseLite", enableInstancing = true }; AssetDatabase.CreateAsset(mat, MatPath); }
         var log = new System.Text.StringBuilder();
+        var mergedSrc = FuwaMoverMerge.MergedSources();   // 部品まとめで隠した元の描画物（まとめた __Merged_ は使わず、元を1つずつ大きさで選ぶ）
         var starts = new List<Transform>(); var fulls = new List<GameObject>(); var lites = new List<GameObject>();
         foreach (var cn in courses)
         {
@@ -164,7 +165,8 @@ public static class FuwaCourseLite
             var V = new List<Vector3>(); var N = new List<Vector3>(); var C = new List<Color>(); var T = new List<int>(); var S = new List<float>(); int used = 0;
             foreach (var mr in root.GetComponentsInChildren<MeshRenderer>(true))
             {
-                if (!mr.enabled || !mr.gameObject.activeInHierarchy) continue;
+                if (mr.name.StartsWith("__Merged_")) continue;
+                if (!(mr.enabled || mergedSrc.Contains(mr)) || !mr.gameObject.activeInHierarchy) continue;
                 if (mr.name.EndsWith("_Far")) continue;
                 var mf = mr.GetComponent<MeshFilter>(); if (mf == null || mf.sharedMesh == null) continue;
                 string path = mr.transform.name; for (var p = mr.transform.parent; p != null && p != root.transform; p = p.parent) path = p.name + "/" + path;

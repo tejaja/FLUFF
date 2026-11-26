@@ -28,6 +28,12 @@ public static class FuwaMoverMerge
     [MenuItem("FuwaCourse/よく使う/一緒に動く部品のまとめを元にもどす")]
     static void MenuRevert() { Debug.Log("[部品まとめ] 元にもどした " + Revert()); }
 
+    // まとめのために enabled=false にした元の描画物（軽い版は __Merged_ ではなくこっちを1つずつ見る。2026-11-26 まとめごと拾ってスタートキノコの軸だけ残っていた）
+    public static HashSet<Renderer> MergedSources()
+    {
+        var map = Resolve(Load().disabled);
+        return new HashSet<Renderer>(map.Values.OfType<Renderer>().Where(r => r));
+    }
     static Rec Load() { return System.IO.File.Exists(RecPath) ? JsonUtility.FromJson<Rec>(System.IO.File.ReadAllText(RecPath)) : new Rec(); }
     static void Save(Rec r) { if (!AssetDatabase.IsValidFolder(Dir)) AssetDatabase.CreateFolder("Assets/FuwaCourse/Generated", "MoverMerge"); System.IO.File.WriteAllText(RecPath, JsonUtility.ToJson(r, true)); }
 
