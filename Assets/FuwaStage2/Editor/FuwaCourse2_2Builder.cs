@@ -2983,6 +2983,7 @@ public static class FuwaCourse2_2Builder
     //  そこからまたゆっくり一番低いとこにもどる」：火山の中心から見た方向ごとのアウトの高さ（1周）
     //  ・焚き火（ZigSeed のいちばん高い物）の方向 → ゴールの方向：その方向の道の高さ（火山から 40m 以内の道の頂点のいちばん高い所）。焚き火→ゴールで下がらないようにならす
     //  ・ゴール → 裏側をまわって焚き火：ゴールの高さから焚き火の高さへまっすぐ下げる
+    public static float VolcanoOutLineOffset = -0.5f;   // 線全体を上下にずらす(m)
     static float[] VolcanoOutLine(Transform root, Vector3 c, float step, Transform pathRoot, out Vector3 center)
     {
         center = c;
@@ -3027,6 +3028,7 @@ public static class FuwaCourse2_2Builder
             float t = Mathf.Clamp01((d - span) / back);
             line[k] = Mathf.Lerp(highY, lowY, t);
         }
+        for (int k = 0; k < n; k++) line[k] += VolcanoOutLineOffset;   // 2026-11-26 てじゃ「基準はそのままに全体的に-0.5して」
         Debug.Log("[2–2] 火山のアウトの線：焚き火 " + aLow.ToString("F0") + "° y" + lowY.ToString("F1") + " → ゴール " + aHigh.ToString("F0") + "° y" + highY.ToString("F1") + "（" + n + "方向）");
         return line;
     }
