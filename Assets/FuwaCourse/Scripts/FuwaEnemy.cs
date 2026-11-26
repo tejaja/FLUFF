@@ -190,6 +190,10 @@ public class FuwaEnemy : UdonSharpBehaviour
     private bool _hitThisDash;
     private bool _hitBallThisDash;
     private float _dashHop = 1f;
+    // 家へピョン（state 13）：飛びついた先から家へ戻る道の間にすき間がある時は、歩かずに跳んで戻る
+    //（2026-11-26 まもののすの3匹の島を道から約1mはなした。歩いて戻るとすき間の上を空中歩きした）
+    private Vector3 _hopFrom;
+    private float _hopHomeDur = 0.6f;
     private float _groundY;
     private float _dashDuration = 0.8f;
 
@@ -451,6 +455,16 @@ public class FuwaEnemy : UdonSharpBehaviour
             return;
         }
 
+        if (_state == 13) // 家へピョン
+        {
+            float x = Mathf.Clamp01(_stateTime / _hopHomeDur);
+            Vector3 hp = Vector3.Lerp(_hopFrom, _home, x);
+            hp.y += 0.9f * 4f * x * (1f - x);
+            transform.position = hp;
+            if (x >= 1f) { transform.position = _home; _groundY = _home.y; SetState(0); }
+            return;
+        }
+
         // ゴールの芝に入ったら倒れる（追いかけ・突進・押されて飛ばされた先がゴール）
         if (_state <= 4 && OnGoalGrass()) { Pop(); return; }
 
@@ -539,8 +553,20 @@ public class FuwaEnemy : UdonSharpBehaviour
             }
             else
             {
-                transform.position = ReturnStep(returnSpeed * dt);
-                if ((transform.position - _home).sqrMagnitude < 0.04f) SetState(0);
+                Vector3 next = ReturnStep(returnSpeed * dt);
+                if (!Physics.Raycast(next + Vector3.up * 0.5f, Vector3.down, 1.6f, 1 << groundLayer, QueryTriggerInteraction.Ignore))
+                {
+                    // この先は足場がない（すき間）→ 家までピョンと跳ぶ
+                    _hopFrom = transform.position;
+                    Vector3 fl = _home - _hopFrom; fl.y = 0f;
+                    _hopHomeDur = Mathf.Max(0.45f, fl.magnitude / 3.5f);
+                    SetState(13);
+                }
+                else
+                {
+                    transform.position = next;
+                    if ((transform.position - _home).sqrMagnitude < 0.04f) SetState(0);
+                }
             }
         }
         else if (_state == 4) // ひるみ（押されてピョンと浮いて飛ぶ → 着地してちょっと転がる）
