@@ -28,6 +28,11 @@ public class FuwaPhotoPoint : UdonSharpBehaviour
     [Tooltip("遠く・近くの写真で、ふわふわよりこれだけ(m)先（飛んでいく向き）の方へカメラを向ける。先のしかけを入れたいポイント用（2026-11-16 てじゃ「2–4の5～6ももうちょい先が写せれば」）")]
     public float lookAhead = 0f;
 
+    [Tooltip("ボードのどの枠に入れるか（0〜5）。-1 なら今まで通り order×2＋1枚目/2枚目。2026-11-26 てじゃ「6箇所バラバラに」→ 1か所1枚の時に使う")]
+    public int slot = -1;
+    [Tooltip("1か所1枚の時の撮り方（0＝遠く、1＝近く、2＝撃った瞬間。撃たなければ近く）。-1 なら今まで通り（1か所2枚）。角度の種類は order（0〜2）で決まる")]
+    public int kind = -1;
+
     private float _shotRun = -1f;
 
     private void OnTriggerEnter(Collider other)

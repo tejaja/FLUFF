@@ -226,6 +226,17 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
     {
         if (point == null || ball == null || shotCam == null || point.camPose == null) return;
         _ball = ball;
+        // 1か所1枚（point.kind が 0 以上。2026-11-26 6か所バラバラ）：撃った瞬間は2枚目の待ち、それ以外は1枚目として撮る
+        if (point.kind >= 0)
+        {
+            if (point.kind == KindFire)
+            {
+                _secondPoint = point; _secondIsFire = true;
+                _fireWaitUntil = Time.time + fireWait; _secondShotAt = -1f;
+            }
+            else { _firstPoint = point; _firstShotAt = Time.time + shotDelay; }
+            return;
+        }
         if (point.takeFirst) { _firstPoint = point; _firstShotAt = Time.time + shotDelay; }
         if (!point.takeSecond) return;
         _secondPoint = point;
@@ -295,7 +306,8 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
         {
             _firstShotAt = -1f;
             int o = _firstPoint != null ? _firstPoint.order : 0;
-            Shoot(_firstPoint, 0, o == 1 ? KindClose : KindFar);
+            int k = _firstPoint != null && _firstPoint.kind >= 0 ? _firstPoint.kind : (o == 1 ? KindClose : KindFar);
+            Shoot(_firstPoint, 0, k);
         }
         // 撃たないまま待ち時間が過ぎたら、近くからの1枚にする
         if (_fireWaitUntil >= 0f && Time.time > _fireWaitUntil)
@@ -316,7 +328,7 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
         VRCPlayerApi lp = Networking.LocalPlayer;
         if (lp == null || !lp.IsValid() || _ball == null || point == null || frames == null || frames.Length == 0) return;
         int order = Mathf.Clamp(point.order, 0, 2);
-        int slot = order * 2 + which;
+        int slot = point.slot >= 0 ? point.slot : order * 2 + which;
         if (slot >= frames.Length) return;
 
         // 別のコース・別の挑戦の写真なら、ボードを消して並べ直す
