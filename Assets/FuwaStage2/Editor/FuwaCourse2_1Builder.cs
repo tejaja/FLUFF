@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -413,30 +413,46 @@ public static class FuwaCourse2_1Builder
                 if (u <= BridgeStraight) return SideV + SideD * u;
                 float uc = u - BridgeStraight; int k = 1; while (k < 400 && tu[k] < uc) k++; return Bz(Mathf.Lerp(tt[k - 1], tt[k], Mathf.InverseLerp(tu[k - 1], tu[k], uc)));
             };
-            // 2026-11-26 曲がり目をならす（B1MinR）：0.1m おきの点にして、まっすぐの所（＋0.5m）と最後の 0.3m は動かさず、
-            //  残りを「両どなりのまん中へ半分寄せる」をくりかえす。いちばんきつい所の半径が B1MinR 以上になったらやめる
-            var bp = new List<Vector2>(); int nb = Mathf.CeilToInt(Lb0 / 0.1f);
-            for (int k = 0; k <= nb; k++) bp.Add(At0(Lb0 * k / nb));
-            int fix0 = Mathf.CeilToInt((BridgeStraight + 0.5f) / (Lb0 / nb)), fix1 = nb - 3;
-            float MinR()
+            // 2026-11-26 曲がり目をならす（B1MinR）：0.1m おきの点の「向き（角度）」をなめらかにして（ガウスでぼかす）、向きから点をつなぎ直す。
+            //  ずれた終わりの点は、まっすぐの所より先の部分にだんだん足して元の終わりの点へもどす。いちばんきつい所の半径が B1MinR 以上になるまでぼかしを強く
+            var bp0 = new List<Vector2>(); int nb = Mathf.CeilToInt(Lb0 / 0.1f); float ds0 = Lb0 / nb;
+            for (int k = 0; k <= nb; k++) bp0.Add(At0(ds0 * k));
+            int fix0 = Mathf.CeilToInt(1.0f / ds0);   // ツタから 1m は動かさない（曲がり目がまっすぐの所のすぐ先なので、まっすぐの所もいっしょにならす）
+            var th = new float[nb];
+            for (int k = 0; k < nb; k++) { var d = bp0[k + 1] - bp0[k]; th[k] = Mathf.Atan2(d.y, d.x); if (k > 0) { while (th[k] - th[k - 1] > Mathf.PI) th[k] -= 2f * Mathf.PI; while (th[k] - th[k - 1] < -Mathf.PI) th[k] += 2f * Mathf.PI; } }
+            float minAt = 0f;
+            float MinR(List<Vector2> q)
             {
                 float mr = float.MaxValue;
-                for (int k = 1; k < nb; k++)
+                for (int k = 1; k < q.Count - 1; k++)
                 {
-                    Vector2 a = bp[k - 1], b = bp[k], c = bp[k + 1];
+                    Vector2 a = q[k - 1], b = q[k], c = q[k + 1];
                     float cr = Mathf.Abs((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x));
                     if (cr < 1e-7f) continue;
-                    mr = Mathf.Min(mr, (b - a).magnitude * (c - b).magnitude * (c - a).magnitude / (2f * cr));
+                    float rr = (b - a).magnitude * (c - b).magnitude * (c - a).magnitude / (2f * cr);
+                    if (rr < mr) { mr = rr; minAt = k * ds0; }
                 }
                 return mr;
             }
-            float b1r0 = MinR(); int iters = 0;
-            while (MinR() < B1MinR && iters < 4000)
+            List<Vector2> Rebuild(float sigma)
             {
-                for (int k = Mathf.Max(1, fix0); k < fix1; k++) bp[k] = Vector2.Lerp(bp[k], (bp[k - 1] + bp[k + 1]) * 0.5f, 0.5f);
-                iters++;
+                int hw = Mathf.CeilToInt(sigma * 3f / ds0); var ts = new float[nb];
+                for (int k = 0; k < nb; k++)
+                {
+                    if (k < fix0) { ts[k] = th[k]; continue; }
+                    float sw = 0f, sv = 0f;
+                    for (int j = -hw; j <= hw; j++) { int kk = Mathf.Clamp(k + j, 0, nb - 1); float wgt = Mathf.Exp(-0.5f * (j * ds0 / sigma) * (j * ds0 / sigma)); sw += wgt; sv += wgt * th[kk]; }
+                    ts[k] = sv / sw;
+                }
+                var q = new List<Vector2> { bp0[0] };
+                for (int k = 0; k < nb; k++) q.Add(q[k] + new Vector2(Mathf.Cos(ts[k]), Mathf.Sin(ts[k])) * ds0);
+                var err = bp0[nb] - q[nb];
+                for (int k = fix0; k <= nb; k++) { float w = Smooth01((k - fix0) / (float)Mathf.Max(1, nb - fix0)); q[k] += err * w; }
+                return q;
             }
-            b1BendLog = "木の橋の曲がり目の半径 " + b1r0.ToString("F2") + "→" + MinR().ToString("F2") + "m（" + iters + "回）";
+            float b1r0 = MinR(bp0), sig = 0f; var bp = bp0;
+            for (int it = 1; it <= 60 && MinR(bp) < B1MinR; it++) { sig = 0.15f * it; bp = Rebuild(sig); }
+            b1BendLog = "木の橋の曲がり目の半径 " + b1r0.ToString("F2") + "→" + MinR(bp).ToString("F2") + "m（ぼかし " + sig.ToString("F2") + "m、いちばんきつい所 u=" + minAt.ToString("F1") + "/" + Lb0.ToString("F1") + "）";
             var bu = new List<float> { 0f }; for (int k = 1; k <= nb; k++) bu.Add(bu[k - 1] + (bp[k] - bp[k - 1]).magnitude);
             float Lb = bu[nb];
             Func<float, Vector2> At = u => { int k = 1; while (k < nb && bu[k] < u) k++; return Vector2.Lerp(bp[k - 1], bp[k], Mathf.InverseLerp(bu[k - 1], bu[k], u)); };
