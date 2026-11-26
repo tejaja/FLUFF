@@ -26,6 +26,7 @@ public class FuwaTierShadows : UdonSharpBehaviour
     [Tooltip("2026-11-16 ポータルをのぞいている間は、向こう側の自分の位置でも影を出す（入った瞬間に影が切り替わらないように）")]
     public FuwaPortalCams portalCams;
 
+
     private int _i;
     // 2026-11-17 毎フレーム「targets == null」「targets.Length」を見るのが重かった（大きい配列。FuwaFarShadows と同じ）ので、最初に1回だけ数えておく
     private int _n = -1;
@@ -45,10 +46,8 @@ public class FuwaTierShadows : UdonSharpBehaviour
         VRCPlayerApi lp = Networking.LocalPlayer;
         if (lp == null) return;
         Vector3 p = lp.GetPosition();
-        int pt = TierOf(p.y);
         bool view = _hasPortal && portalCams.viewOn;
         Vector3 q = view ? portalCams.viewPos : p;
-        int qt = TierOf(q.y);
         // 1フレームに見る数は「30フレームで1周」ぶん（前は perFrame=120 個ずつで約0.7ms。2026-11-17）
         int n = Mathf.Min(perFrame, (_n + 29) / 30);
         for (int c = 0; c < n; c++)
@@ -57,10 +56,12 @@ public class FuwaTierShadows : UdonSharpBehaviour
             Renderer r = targets[_i];
             if (r != null)
             {
-                float sd = radii[_i] < smallRadius ? smallDistance : shadowDistance;
+                // 2026-11-26 てじゃ「ちょっと移動するだけで影がぱきっと切り替わる」：影オフにした物は深度テクスチャから外れて、自分に落ちる影もおかしくなる
+                // （オフにした瞬間に、その物に落ちていた影が消える）。なので段で切るのはやめて、PC の影が出る距離（75m）の内側ではオフにしない
+                float sd = Mathf.Max(radii[_i] < smallRadius ? smallDistance : shadowDistance, 75f);
                 float rr = (sd + radii[_i]) * (sd + radii[_i]);
-                bool on = tiers[_i] >= pt && (centers[_i] - p).sqrMagnitude < rr;
-                if (!on && view) on = tiers[_i] >= qt && (centers[_i] - q).sqrMagnitude < rr;
+                bool on = (centers[_i] - p).sqrMagnitude < rr;
+                if (!on && view) on = (centers[_i] - q).sqrMagnitude < rr;
                 ShadowCastingMode want = on ? ShadowCastingMode.On : ShadowCastingMode.Off;
                 if (r.shadowCastingMode != want) r.shadowCastingMode = want;
             }

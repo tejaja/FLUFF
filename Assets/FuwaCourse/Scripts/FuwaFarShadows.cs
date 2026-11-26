@@ -18,6 +18,7 @@ public class FuwaFarShadows : UdonSharpBehaviour
     [Tooltip("2026-11-16 ポータルをのぞいている間は、向こう側の自分の位置から近い物も影を出す（空ならなし）")]
     public FuwaPortalCams portalCams;
 
+
     private bool[] _off;
     private int _next;
 
@@ -58,7 +59,10 @@ public class FuwaFarShadows : UdonSharpBehaviour
         int c1 = 0, c2 = 0;
         for (int i = 0; i < n; i++)
         {
-            float t = shadowDistance + radii[i]; _thr2[i] = t * t;
+            // 2026-11-26 てじゃ「ちょっと移動するだけで影がぱきっと切り替わる」：影を落とすのをオフにした物は、カメラの奥行きの記録（深度テクスチャ）から外れて、
+            // 自分に落ちる影も後ろの物の位置で判定される → オフにした瞬間にその物に落ちていた影も消える。
+            // なので PC の影が出る距離（VRC Low/Medium の 75m）の内側ではオフにしない（Quest は影なしなので関係なし）
+            float t = Mathf.Max(shadowDistance, 75f) + radii[i]; _thr2[i] = t * t;
             int s = targetStage != null && i < targetStage.Length ? targetStage[i] : 0;
             if (s != 2) c1++;
             if (s != 1) c2++;
