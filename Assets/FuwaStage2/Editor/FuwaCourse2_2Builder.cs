@@ -392,7 +392,7 @@ public static class FuwaCourse2_2Builder
         ApplyMonsterAvoid(root);   // チェックポイントを作ったあとで
         FuwaStage2LobbyCourses.Run();
         FuwaStage2CopyShadows.Run();   // 写したスタート・ゴールの飾りを「近くで影を出す」一覧へ（2026-11-11）
-        Debug.Log("[2–2] " + FuwaPathSeamCheck.FillCornerHoles(root, true));   // 道の角の小さい穴（2026-11-21 てじゃ「道の角が開いてる」）
+        Debug.Log("[2–2] " + FuwaPathSeamCheck.FillCornerHoles(root, true, 1.4f));   // 道の角の小さい穴（2026-11-21 てじゃ「道の角が開いてる」）。2026-11-26 入口の道の端の縦のすき間（周1m強）もふさぐので 1.4m まで
         FuwaCourse2_1Builder.FixNetworkIDs();
         RegisterBgm(root);
         FuwaStage2Static.Apply(root);
