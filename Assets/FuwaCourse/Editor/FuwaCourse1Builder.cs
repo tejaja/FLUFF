@@ -269,7 +269,7 @@ public static class FuwaCourse1Builder
     // 追い風：2.5〜14 → スタート側を削って 2/3 に（2026-11-05 てじゃ「スタート直後は歩く」）。終わりは同じ
     public const float TailA = 6.33f, TailB = 14f;
     // 追い風の粒を出す幅（道に直角、m）。道（約3m）より左右に1mずつ広く（2026-11-26 てじゃ「追い風が出てる範囲、コース外にもちょっとだけ広げといて」。前は 2.6）
-    public const float TailPsWidth = 5.0f;
+    public const float TailPsWidth = 8.0f;   // 2026-11-26 夜 5m→8m（てじゃ「正面は見えないけど見える量すくなすぎる、もっと外側にふやそう」：正面から見た筋は消えるので、外側の筋をふやす）
     static void TailPsWiden(ParticleSystem ps)
     {
         float k = TailPsWidth / 2.6f;
