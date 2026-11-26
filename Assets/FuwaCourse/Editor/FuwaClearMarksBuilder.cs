@@ -76,6 +76,8 @@ public static class FuwaClearMarksBuilder
             var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(cm); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); }
             log.Add(lobby.name + " " + ml.Count);
         }
+        // 2026-11-26 作り直すと SmallShadows の参照が切れて、クリアのミニキノコの影が消えていた（てじゃ「ミニキノコの影がきえちゃった」）→ 入れ直す
+        log.Add(FuwaMiniMushrooms.LobbyClearShadows() + FuwaFarViewSetup.RefreshShadowCenters());
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
         Debug.Log("[クリアの印] " + string.Join(", ", log));
     }
