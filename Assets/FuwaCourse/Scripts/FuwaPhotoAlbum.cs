@@ -48,8 +48,12 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
     public float[] occluderRadii;
     [Tooltip("occluderCenters の重み（1＝光るキノコ、クモの巣は透けるので軽め・写す物にかかっても大きく数えない）")]
     public float[] occluderWeights;
+    [Tooltip("撮影用の1枚の MSAA（1/2/4/8）。写真のふちのギザギザを取る")]
+    public int photoMsaa = 4;
     [Tooltip("写真の大きさ（横）。縦は16:9")]
     public int photoWidth = 1920;   // 2026-10-12 1280→1920（PCのみ。Quest対応する時は Android ビルドで下げる）
+    [Tooltip("Android（Quest・スマホ）の写真の大きさ（横）。メモリが少ないので下げる")]
+    public int photoWidthMobile = 1280;   // 2026-11-26 てじゃ「Androidだけ解像度落としてもいいかも」（1920 で約66MB → 1280 で約30MB）
     [Tooltip("撮る時に隠すもの（HUDの文字など）")]
     public Renderer[] hideWhileShooting;
 
@@ -133,6 +137,9 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
 
     private void Start()
     {
+#if UNITY_ANDROID || UNITY_IOS
+        if (photoWidthMobile > 0 && photoWidthMobile < photoWidth) photoWidth = photoWidthMobile;
+#endif
         int n = frames != null ? frames.Length : 0;
         _photos = new RenderTexture[n];
         _has = new bool[n];
@@ -353,6 +360,8 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
         if (_renderRT == null)
         {
             _renderRT = new RenderTexture(photoWidth, ph, 24);
+            // 2026-11-26 てじゃ「AAのほうがいいかも」：写真のふちのギザギザ。撮影用の1枚だけ MSAA（写真6枚は色だけのまま、Blit でならされる）
+            _renderRT.antiAliasing = photoMsaa;
             _renderRT.Create();
         }
 
