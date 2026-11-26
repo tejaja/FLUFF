@@ -13,9 +13,11 @@ Shader "FuwaCourse/WindStreak"
         _NearHide ("Camera Fade: invisible within (m)", Float) = 0.2
         _NearShow ("Camera Fade: fully visible beyond (m)", Float) = 0.6
         // 正面（筋の向きに沿って）から見ると、帯が縮んで丸いもやの塊に見える（2026-11-26 てじゃ「1-1最初の追い風を正面から見てる時、真正面にある風エフェクトがちょと変」「真正面はなくてもいい」）
-        //  → 画面で見た帯の「長さ÷幅」がこれより小さいと消す（横から見ると細長い＝大きい、正面からだと短く太い＝小さい）
-        _HeadOnHide ("Head-on: invisible when screen length/width below", Float) = 1.5
-        _HeadOnShow ("Head-on: fully visible when screen length/width above", Float) = 4
+        //  → 風の向き（_WindDir、FuwaWindStreakDir が風ごとのマテリアルに入れる）と見る向きがそろうほど消す。w=0 なら何もしない
+        //  （最初は画面での帯の長さ÷幅で消していたが、帯の継ぎ目ごとにムラが出てシマシマになった）
+        _WindDir ("Wind Direction (world, w=1 on)", Vector) = (0, 0, 1, 0)
+        _HeadOnShow ("Head-on: fully visible below |cos|", Range(0, 1)) = 0.7
+        _HeadOnHide ("Head-on: invisible above |cos|", Range(0, 1)) = 0.9
     }
     SubShader
     {
@@ -37,7 +39,7 @@ Shader "FuwaCourse/WindStreak"
             half _EdgeSoft, _EndFade;
             float _FadeStart, _FadeEnd; half _FarAlpha;
             float _NearHide, _NearShow;
-            float _HeadOnHide, _HeadOnShow;
+            float4 _WindDir; float _HeadOnHide, _HeadOnShow;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; UNITY_FOG_COORDS(1) float3 wp : TEXCOORD2; UNITY_VERTEX_OUTPUT_STEREO };
@@ -54,6 +56,12 @@ Shader "FuwaCourse/WindStreak"
                 o.wp = mul(unity_ObjectToWorld, v.vertex).xyz;
                 float d = distance(o.wp, _WorldSpaceCameraPos);
                 o.color.a *= lerp(1, _FarAlpha, saturate((d - _FadeStart) / max(0.01, _FadeEnd - _FadeStart)));
+                // 正面（風の向きに沿って）から見る筋は消す
+                if (_WindDir.w > 0.5)
+                {
+                    float c = abs(dot(normalize(o.wp - _WorldSpaceCameraPos), normalize(_WindDir.xyz)));
+                    o.color.a *= 1 - smoothstep(_HeadOnShow, max(_HeadOnHide, _HeadOnShow + 0.01), c);
+                }
                 UNITY_TRANSFER_FOG(o, o.pos); return o;
             }
 
@@ -66,9 +74,6 @@ Shader "FuwaCourse/WindStreak"
                 half ends = smoothstep(0, _EndFade, i.uv.x) * smoothstep(1, 1 - _EndFade * 2, i.uv.x);
                 // 目の前は消す（筋は長いので頂点ではなくピクセルごとの距離で）
                 half nearFade = smoothstep(_NearHide, max(_NearShow, _NearHide + 0.01), distance(i.wp, _WorldSpaceCameraPos));
-                // 正面から見た筋は消す：uv の画面での変わり方から、帯の見かけの長さ÷幅（= 幅方向の変化 ÷ 長さ方向の変化）
-                float elong = fwidth(i.uv.y) / max(fwidth(i.uv.x), 1e-5);
-                nearFade *= smoothstep(_HeadOnHide, max(_HeadOnShow, _HeadOnHide + 0.01), elong);
                 { fixed4 fogc__ = fixed4(i.color.rgb, i.color.a * edge * ends * nearFade); UNITY_APPLY_FOG(i.fogCoord, fogc__); return fogc__; }
             }
             ENDCG
