@@ -4,9 +4,9 @@
 // メッシュは SpiderWebLinesMesh.cs が作る（マテリアルの値から。プロパティ名は SpiderWeb と同じなので、シェーダーを差しかえるだけで値はそのまま）。
 // 穴の半径 _HoleRadius は頂点で計算するので、FuwaWebHole で穴が呼吸しても、輪・縦糸・夜露がいっしょに動く。
 //
-// 頂点の中身：uv0 = (種類, 横 -1/+1, 糸の上の位置 t, 予備)、uv1・uv2 = 種類ごとの値（下の webGeom を参照）
+// 頂点の中身：uv0 = (種類, 横 -1/+1, 糸の上の位置 t, 段)、uv1・uv2 = 種類ごとの値（下の webGeom を参照）
 //  種類 0 縦糸 / 1 横糸（輪）/ 2 外枠の糸 / 3 穴のふち / 4 夜露のつぶ
-// パス：0 外枠のまわりのにじみ → 1 糸の縁取り（暗い色） → 2 糸の中心（明るい色） → 3 穴のふちの光・夜露 → 4 奥行きだけ書く
+// 描き方：1回目の描画で、メッシュに並べた順に 0 外枠のまわりのにじみ → 1 糸の縁取り（暗い色） → 2 糸の中心（明るい色） → 3 穴のふちの光・夜露（uv0.w = 段）。2回目は奥行きだけ書く
 Shader "FuwaCourse/SpiderWebLines"
 {
     Properties
@@ -130,7 +130,9 @@ Shader "FuwaCourse/SpiderWebLines"
         return kind < 3.5;   // 縁取り・中心：縦糸・輪・外枠・穴のふち（ふちも普通の糸として描く）
     }
 
-    v2f webVert(appdata v, int ps)
+    // 1つのメッシュの中に、描く順（0 にじみ → 1 縁取り → 2 中心 → 3 光・夜露）に三角形を並べてある（uv0.w = その段）。
+    //  同じ描画の中では三角形は並んだ順に重なるので、1回の描画で「縁取りの上に中心」になる（ドローコールを減らすため）
+    v2f webVert(appdata v, bool depthOnly)
     {
         v2f o;
         UNITY_SETUP_INSTANCE_ID(v);
@@ -142,7 +144,8 @@ Shader "FuwaCourse/SpiderWebLines"
         bool corner = false;
         float2 cutDir = 0;
         float4 joinN = 0;
-        bool hide = !kindInPass(kind, ps);
+        int ps = (int)(v.uv0.w + 0.5);
+        bool hide = !kindInPass(kind, ps) || (depthOnly && ps != 2);
 
         if (kind < 0.5)
         {
@@ -234,8 +237,8 @@ Shader "FuwaCourse/SpiderWebLines"
 
         float3 obj = float3((q + _HoleCenter.xy) / _Size.xy, 0);
         o.pos = UnityObjectToClipPos(obj);
-        if (hide) o.pos = float4(2, 2, 2, 1);   // この線はこのパスでは描かない（三角形をつぶす）
-        o.e = float4(across, along, len, kind);
+        if (hide) o.pos = float4(2, 2, 2, 1);   // この線は描かない（三角形をつぶす）
+        o.e = float4(across, along, len, kind + ps * 10);
         o.f = float4(dewLocal, v.uv2.z, corner ? 1 : 0);
         o.wpos = mul(unity_ObjectToWorld, float4(obj, 1)).xyz;
         o.m = q + _HoleCenter.xy;
@@ -292,129 +295,101 @@ Shader "FuwaCourse/SpiderWebLines"
         UNITY_APPLY_FOG(i.fogCoord, c);
         return c;
     }
+    // 線の種類（e.w = 種類 + 段*10）
+    float kindOf(v2f i) { return i.e.w - floor(i.e.w * 0.1 + 0.05) * 10; }
+
+    fixed4 fragHalo(v2f i, float camD, float px)
+    {
+        float pulse = pulseAt(camD);
+        if (pulse * _EdgeGlow.a < 0.01) discard;
+        float d = lineDist(i);
+        float hw = _LineWidth * 0.5, hwE = hw * _EdgeWidth, owE = hwE * _OutlineWidth * 0.8;
+        float halo = (1 - smoothstep(hwE + owE, hwE + owE + max(_EdgeHalo, px), d)) * pulse * _EdgeGlow.a * 0.35;
+        halo *= _Color.a * tearMask(i.m, px);
+        return finish(i, _EdgeGlow.rgb, halo, camD);
+    }
+
+    fixed4 fragOutline(v2f i, float camD, float px)
+    {
+        float d = lineDist(i);
+        float lw = px * 1.2;
+        float W = halfWidthFor(kindOf(i), 1);
+        float lineA = 1 - smoothstep(W - lw * 0.5, W + lw * 0.5, d);
+        float a = lineA * _OutlineColor.a * _Color.a * tearMask(i.m, px);
+        return finish(i, _OutlineColor.rgb, a, camD);
+    }
+
+    // 近づいた巣はうっすら明滅（外枠は少し強め）
+    fixed4 fragCore(v2f i, float camD, float px)
+    {
+        float kind = kindOf(i);
+        float d = lineDist(i);
+        float lw = px * 1.2;
+        float W = halfWidthFor(kind, 2);
+        float coreA = 1 - smoothstep(W - lw * 0.5, W + lw * 0.5, d);
+        bool edge = kind > 1.5 && kind < 2.5;
+        float pulse = pulseAt(camD);
+        fixed3 core = lerp(_CoreColor.rgb, _EdgeGlow.rgb, pulse * _EdgeGlow.a * (edge ? lerp(0.75, 1.0, coreA) : 0.75));
+        float a = coreA * _CoreColor.a * _Color.a * tearMask(i.m, px);
+        return finish(i, core, a, camD);
+    }
+
+    // 穴のふち（太く明るい糸＋まわりにうっすら光）と、夜露のつぶ（ときどきキラッ）
+    fixed4 fragOverlay(v2f i, float camD, float px, float pxDew)
+    {
+        float hw = _LineWidth * 0.5;
+        if (kindOf(i) > 3.5)
+        {
+            float dDew = length(i.f.xy);
+            float lw = pxDew * 1.2;
+            float dewR = max(_DewSize, hw * 1.7);
+            float tw = pow(saturate(sin(_Time.y * _TwinkleSpeed + i.f.z * 97.0)), 16);
+            float dewA = 1 - smoothstep(dewR - lw * 0.5, dewR + lw * 0.5, dDew);
+            float haloA = (1 - smoothstep(dewR, dewR * (1.8 + 1.5 * tw), dDew)) * 0.35 * tw;
+            float a = max(dewA * _DewColor.a, haloA) * _Color.a * tearMask(i.m, pxDew);
+            return finish(i, _DewColor.rgb * (0.9 + 0.4 * tw), a, camD);
+        }
+        float dRim = abs(i.e.x);
+        float lw = px * 1.2;
+        float hwR = hw * _RimWidth;
+        float rimA = 1 - smoothstep(hwR - lw * 0.5, hwR + lw * 0.5, dRim);
+        float glowA = (1 - smoothstep(hwR, hwR + max(_RimGlow, 1e-4), dRim)) * _RimGlowAlpha;
+        return finish(i, _RimColor.rgb, max(rimA * _RimColor.a, glowA), camD);
+    }
     ENDCG
 
     SubShader
     {
         Tags { "Queue"="Transparent" "RenderType"="Transparent" "IgnoreProjector"="True" "DisableBatching"="True" }
         Cull Off
-        Blend SrcAlpha OneMinusSrcAlpha
 
-        // 0：外枠のまわりのにじみ（近づくと明滅）
+        // 色：にじみ・縁取り・中心・光／夜露を、メッシュに並べた順に1回で描く。
+        //  奥行きはここでは書かない（重なった糸どうしが同じ面で奥行きを取り合って欠けるので）→ 次のパスで書く
         Pass
         {
             ZWrite Off
+            Blend SrcAlpha OneMinusSrcAlpha
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile_fog
-            v2f vert (appdata v) { return webVert(v, 0); }
+            v2f vert (appdata v) { return webVert(v, false); }
             fixed4 frag (v2f i) : SV_Target
             {
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
-                float camD = distance(i.wpos, _WorldSpaceCameraPos);
-                float pulse = pulseAt(camD);
-                if (pulse * _EdgeGlow.a < 0.01) discard;
-                float d = lineDist(i);
                 float px = max(fwidth(i.e.x), 1e-5);
-                float hw = _LineWidth * 0.5, hwE = hw * _EdgeWidth, owE = hwE * _OutlineWidth * 0.8;
-                float halo = (1 - smoothstep(hwE + owE, hwE + owE + max(_EdgeHalo, px), d)) * pulse * _EdgeGlow.a * 0.35;
-                halo *= _Color.a * tearMask(i.m, px);
-                return finish(i, _EdgeGlow.rgb, halo, camD);
+                float pxDew = max(fwidth(i.f.x), 1e-5);
+                float camD = distance(i.wpos, _WorldSpaceCameraPos);
+                float layer = floor(i.e.w * 0.1 + 0.05);
+                [branch] if (layer < 0.5) return fragHalo(i, camD, px);
+                [branch] if (layer < 1.5) return fragOutline(i, camD, px);
+                [branch] if (layer < 2.5) return fragCore(i, camD, px);
+                return fragOverlay(i, camD, px, pxDew);
             }
             ENDCG
         }
 
-        // 1：糸の縁取り（暗い色）。奥行きは書かない（同じ面の中心の糸と奥行きの取り合いでチラつくので）
-        Pass
-        {
-            ZWrite Off
-            CGPROGRAM
-            #pragma vertex vert
-            #pragma fragment frag
-            #pragma multi_compile_fog
-            v2f vert (appdata v) { return webVert(v, 1); }
-            fixed4 frag (v2f i) : SV_Target
-            {
-                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
-                float camD = distance(i.wpos, _WorldSpaceCameraPos);
-                float d = lineDist(i);
-                float px = max(fwidth(i.e.x), 1e-5);
-                float lw = px * 1.2;
-                float W = halfWidthFor(i.e.w, 1);
-                float lineA = 1 - smoothstep(W - lw * 0.5, W + lw * 0.5, d);
-                float a = lineA * _OutlineColor.a * _Color.a * tearMask(i.m, px);
-                return finish(i, _OutlineColor.rgb, a, camD);
-            }
-            ENDCG
-        }
-
-        // 2：糸の中心（明るい色）。近づいた巣はうっすら明滅（外枠は少し強め）
-        //  奥行きはここでは書かない（重なった糸どうしが同じ面で奥行きを取り合って欠けるので）→ 最後のパス4で書く
-        Pass
-        {
-            ZWrite Off
-            CGPROGRAM
-            #pragma vertex vert
-            #pragma fragment frag
-            #pragma multi_compile_fog
-            v2f vert (appdata v) { return webVert(v, 2); }
-            fixed4 frag (v2f i) : SV_Target
-            {
-                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
-                float camD = distance(i.wpos, _WorldSpaceCameraPos);
-                float d = lineDist(i);
-                float px = max(fwidth(i.e.x), 1e-5);
-                float lw = px * 1.2;
-                float W = halfWidthFor(i.e.w, 2);
-                float coreA = 1 - smoothstep(W - lw * 0.5, W + lw * 0.5, d);
-                bool edge = i.e.w > 1.5 && i.e.w < 2.5;
-                float pulse = pulseAt(camD);
-                fixed3 core = lerp(_CoreColor.rgb, _EdgeGlow.rgb, pulse * _EdgeGlow.a * (edge ? lerp(0.75, 1.0, coreA) : 0.75));
-                float a = coreA * _CoreColor.a * _Color.a * tearMask(i.m, px);
-                return finish(i, core, a, camD);
-            }
-            ENDCG
-        }
-
-        // 3：穴のふち（太く明るい糸＋まわりにうっすら光）と、夜露のつぶ（ときどきキラッ）
-        Pass
-        {
-            ZWrite Off
-            CGPROGRAM
-            #pragma vertex vert
-            #pragma fragment frag
-            #pragma multi_compile_fog
-            v2f vert (appdata v) { return webVert(v, 3); }
-            fixed4 frag (v2f i) : SV_Target
-            {
-                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
-                float camD = distance(i.wpos, _WorldSpaceCameraPos);
-                float hw = _LineWidth * 0.5;
-                if (i.e.w > 3.5)
-                {
-                    float dDew = length(i.f.xy);
-                    float px = max(fwidth(i.f.x), 1e-5);
-                    float lw = px * 1.2;
-                    float dewR = max(_DewSize, hw * 1.7);
-                    float tw = pow(saturate(sin(_Time.y * _TwinkleSpeed + i.f.z * 97.0)), 16);
-                    float dewA = 1 - smoothstep(dewR - lw * 0.5, dewR + lw * 0.5, dDew);
-                    float haloA = (1 - smoothstep(dewR, dewR * (1.8 + 1.5 * tw), dDew)) * 0.35 * tw;
-                    float a = max(dewA * _DewColor.a, haloA) * _Color.a * tearMask(i.m, px);
-                    return finish(i, _DewColor.rgb * (0.9 + 0.4 * tw), a, camD);
-                }
-                float dRim = abs(i.e.x);
-                float px = max(fwidth(i.e.x), 1e-5);
-                float lw = px * 1.2;
-                float hwR = hw * _RimWidth;
-                float rimA = 1 - smoothstep(hwR - lw * 0.5, hwR + lw * 0.5, dRim);
-                float glowA = (1 - smoothstep(hwR, hwR + max(_RimGlow, 1e-4), dRim)) * _RimGlowAlpha;
-                return finish(i, _RimColor.rgb, max(rimA * _RimColor.a, glowA), camD);
-            }
-            ENDCG
-        }
-
-        // 4：糸の所だけ奥行きを書く（色は書かない）。あとから描く半透明のエフェクト＝重力エリアなどが、手前の糸の上に出ないように
+        // 糸の所だけ奥行きを書く（色は書かない）。あとから描く半透明のエフェクト＝重力エリアなどが、手前の糸の上に出ないように
         Pass
         {
             ZWrite On
@@ -422,14 +397,14 @@ Shader "FuwaCourse/SpiderWebLines"
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
-            v2f vert (appdata v) { return webVert(v, 2); }
+            v2f vert (appdata v) { return webVert(v, true); }
             fixed4 frag (v2f i) : SV_Target
             {
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
+                float px = max(fwidth(i.e.x), 1e-5);
                 float camD = distance(i.wpos, _WorldSpaceCameraPos);
                 float d = lineDist(i);
-                float px = max(fwidth(i.e.x), 1e-5);
-                float W = halfWidthFor(i.e.w, 2);
+                float W = halfWidthFor(kindOf(i), 2);
                 float coreA = 1 - smoothstep(W - px * 0.6, W + px * 0.6, d);
                 float far = smoothstep(_DepthNear, max(_DepthFar, _DepthNear + 0.01), camD);
                 clip(coreA * _CoreColor.a * _Color.a * lerp(1, _DepthFade, far) * camFadeAt(camD) - 0.03);

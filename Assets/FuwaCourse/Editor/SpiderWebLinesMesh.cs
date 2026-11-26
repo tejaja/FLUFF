@@ -64,21 +64,44 @@ public static class SpiderWebLinesMesh
     {
         public List<Vector3> pos = new List<Vector3>();
         public List<Vector4> uv0 = new List<Vector4>(), uv1 = new List<Vector4>(), uv2 = new List<Vector4>();
-        public List<int> tri = new List<int>();
         public void V(Vector2 p, Vector4 a, Vector4 b, Vector4 c, Vector2 size, Vector2 hc)
         {
             pos.Add(new Vector3((p.x + hc.x) / size.x, (p.y + hc.y) / size.y, 0));
             uv0.Add(a); uv1.Add(b); uv2.Add(c);
         }
-        // 2本の列（横 -1 と +1）の帯
-        public void Strip(int start, int count)
+        // 2本の列（横 -1 と +1）の帯。どの段（0 にじみ / 1 縁取り / 2 中心 / 3 光・夜露）で描くかは種類で決まる
+        public List<(int start, int count, int kind)> strips = new List<(int, int, int)>();
+        public void Strip(int start, int count) { strips.Add((start, count, Mathf.RoundToInt(uv0[start].x))); }
+
+        static bool InLayer(int kind, int layer)
         {
-            for (int k = 0; k + 1 < count; k++)
-            {
-                int a = start + k * 2, b = a + 1, c = a + 2, d = a + 3;
-                tri.Add(a); tri.Add(c); tri.Add(b);
-                tri.Add(b); tri.Add(c); tri.Add(d);
-            }
+            if (layer == 0) return kind == 2;          // 外枠のにじみ
+            if (layer == 3) return kind >= 3;          // 穴のふちの光・夜露
+            return kind <= 3;                          // 縁取り・中心：縦糸・輪・外枠・穴のふち
+        }
+
+        // 段ごとに頂点を複製して、段の順に三角形を並べる（1回の描画で、縁取りの上に中心が重なる）
+        public void Build(out List<Vector3> P, out List<Vector4> U0, out List<Vector4> U1, out List<Vector4> U2, out List<int> T)
+        {
+            P = new List<Vector3>(); U0 = new List<Vector4>(); U1 = new List<Vector4>(); U2 = new List<Vector4>(); T = new List<int>();
+            for (int layer = 0; layer < 4; layer++)
+                foreach (var st in strips)
+                {
+                    if (!InLayer(st.kind, layer)) continue;
+                    int b0 = P.Count;
+                    for (int j = 0; j < st.count * 2; j++)
+                    {
+                        P.Add(pos[st.start + j]);
+                        var u = uv0[st.start + j]; u.w = layer; U0.Add(u);
+                        U1.Add(uv1[st.start + j]); U2.Add(uv2[st.start + j]);
+                    }
+                    for (int k = 0; k + 1 < st.count; k++)
+                    {
+                        int a = b0 + k * 2, b = a + 1, c = a + 2, d = a + 3;
+                        T.Add(a); T.Add(c); T.Add(b);
+                        T.Add(b); T.Add(c); T.Add(d);
+                    }
+                }
         }
     }
 
@@ -185,7 +208,7 @@ public static class SpiderWebLinesMesh
                 }
                 Vector2 A = d0 * (hr + sA) * wA, B = d1 * (hr + sB) * wB;
                 float L = (B - A).magnitude;
-                int seg = Mathf.Clamp(Mathf.CeilToInt(L / 0.06f), 3, 14);
+                int seg = Mathf.Clamp(Mathf.CeilToInt(L / 0.09f), 2, 10);
                 Vector2 outN = (A + B).normalized;
                 int st = D.pos.Count;
                 for (int j = 0; j <= seg; j++)
@@ -244,11 +267,12 @@ public static class SpiderWebLinesMesh
             D.Strip(st, 2);
         }
 
+        D.Build(out var P, out var U0, out var U1, out var U2, out var T);
         var mesh = new Mesh { name = m.name + "_Lines" };
-        mesh.indexFormat = D.pos.Count > 65000 ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16;
-        mesh.SetVertices(D.pos);
-        mesh.SetUVs(0, D.uv0); mesh.SetUVs(1, D.uv1); mesh.SetUVs(2, D.uv2);
-        mesh.SetTriangles(D.tri, 0);
+        mesh.indexFormat = P.Count > 65000 ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16;
+        mesh.SetVertices(P);
+        mesh.SetUVs(0, U0); mesh.SetUVs(1, U1); mesh.SetUVs(2, U2);
+        mesh.SetTriangles(T, 0);
         // 形は頂点シェーダーで決まるので、大きさは板（Quad）と同じにしておく（穴が呼吸しても板の中）
         mesh.bounds = new Bounds(Vector3.zero, new Vector3(1.02f, 1.02f, 0.02f));
 
@@ -258,9 +282,9 @@ public static class SpiderWebLinesMesh
         if (ex == null) { AssetDatabase.CreateAsset(mesh, path); return mesh; }
         ex.Clear();
         ex.indexFormat = mesh.indexFormat;
-        ex.SetVertices(D.pos);
-        ex.SetUVs(0, D.uv0); ex.SetUVs(1, D.uv1); ex.SetUVs(2, D.uv2);
-        ex.SetTriangles(D.tri, 0);
+        ex.SetVertices(P);
+        ex.SetUVs(0, U0); ex.SetUVs(1, U1); ex.SetUVs(2, U2);
+        ex.SetTriangles(T, 0);
         ex.bounds = mesh.bounds;
         EditorUtility.SetDirty(ex);
         Object.DestroyImmediate(mesh);
