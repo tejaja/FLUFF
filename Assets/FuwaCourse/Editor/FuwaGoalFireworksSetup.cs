@@ -13,8 +13,11 @@ public static class FuwaGoalFireworksSetup
     [MenuItem("FuwaCourse/ゴール：花火を作り直す（3種＋小玉）")]
     public static void Menu() { Debug.Log(Run()); }
 
-    const float BigLife = 0.9f;     // 打ち上げ → ドン
-    const float SmallLife = 0.7f;
+    // 2026-11-26 てじゃ「ゴール文字とかにかぶてもいいからちょと低めに打ち上げるとどうなるかみてみたい」
+    //  → 打ち上げの速さと開くまでの時間を LowK 倍（開く高さは LowK² 倍。4.5m → 約3m）。1にすると前の高さ
+    const float LowK = 0.82f;
+    const float BigLife = 0.9f * LowK;     // 打ち上げ → ドン
+    const float SmallLife = 0.7f * LowK;
     // 2026-11-25 てじゃ「至近距離で入れる事おおいから、派手だけど頭上になっちゃう」「範囲は前くらいでいいのかも」「柵の外でうちあがるのもありかも」
     //  → 自分から見てゴールの向こう側、柵の外（島のふちの少し下）からまっすぐ打ち上げ（FuwaGoal.fireworksAway / fireworksDrop）。開く広さは前の版くらい
     //    天井のあるゴール（2-5 の洞窟）は今まで通り真ん中から
@@ -78,7 +81,7 @@ public static class FuwaGoalFireworksSetup
         var tmp = new GameObject("Fireworks");
         var tps = tmp.AddComponent<ParticleSystem>();
         _tilt = 0f;
-        Build(tps, 0.95f);   // 真ん中からは前の版の高さ（打ち上げ 9.5m/s → 4.5mで開く）
+        Build(tps, 0.95f * LowK);   // 真ん中から（LowK=1 で打ち上げ 9.5m/s → 4.5mで開く）
         var prefab = PrefabUtility.SaveAsPrefabAsset(tmp, PrefabPath);
         Object.DestroyImmediate(tmp);
         // 12か所：今の花火（GoalFx/Fireworks）をプレハブに置きかえる
