@@ -22,7 +22,11 @@ Material:
   m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
-    m_TexEnvs: []
+    m_TexEnvs:
+    - _SpokeTex:
+        m_Texture: {fileID: 2800000, guid: b4870e99773560b46bee6d120912f2db, type: 2}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
     - _DepthFade: 0.45
@@ -60,6 +64,7 @@ Material:
     - _Spiral: 1
     - _SplitChance: 0
     - _SplitStart: 0.4
+    - _SpokeTexOn: 1
     - _Spokes: 28
     - _TearW: 0
     - _TwinkleSpeed: 1.3

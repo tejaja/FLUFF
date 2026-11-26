@@ -22,7 +22,11 @@ Material:
   m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
-    m_TexEnvs: []
+    m_TexEnvs:
+    - _SpokeTex:
+        m_Texture: {fileID: 2800000, guid: bb413440af1d0694fa551454e3598f95, type: 2}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
     - _DepthFade: 0.45
@@ -35,6 +39,9 @@ Material:
     - _EdgeWidth: 1.7
     - _FadeFar: 1
     - _FadeNear: 0.45
+    - _FarFadeEnd: 0
+    - _FarFadeMin: 0
+    - _FarFadeStart: 0
     - _FrameN: 5
     - _GapChance: 0
     - _HoleRadius: 0
@@ -58,7 +65,9 @@ Material:
     - _Spiral: 1
     - _SplitChance: 0
     - _SplitStart: 0.4
+    - _SpokeTexOn: 1
     - _Spokes: 24
+    - _TearW: 0
     - _TwinkleSpeed: 1.3
     m_Colors:
     - _Color: {r: 0.41999996, g: 0.39999998, b: 0.52, a: 0.94}
@@ -74,4 +83,6 @@ Material:
     - _OutlineColor: {r: 0.11999995, g: 0.089999996, b: 0.17999998, a: 0.85}
     - _RimColor: {r: 0.95, g: 0.95, b: 1, a: 1}
     - _Size: {r: 1, g: 2.6, b: 0, a: 0}
+    - _TearA: {r: 0, g: 0, b: 0, a: 0}
+    - _TearB: {r: 0, g: 0, b: 0, a: 0}
   m_BuildTextureStacks: []

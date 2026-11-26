@@ -139,6 +139,7 @@ public static class SpiderWebBuild
             mat.SetFloat("_FrameN", fc.Count);
             mat.SetVector("_F01", fv[0]); mat.SetVector("_F23", fv[1]); mat.SetVector("_F45", fv[2]); mat.SetVector("_F67", fv[3]);
         }
+        SpiderWebSpokeTex.Bake(mat);   // 2026-11-26 縦糸の向き・長さの表（シェーダーの軽量化）
         EditorUtility.SetDirty(mat);
 
         if (b.webRenderer != null)
