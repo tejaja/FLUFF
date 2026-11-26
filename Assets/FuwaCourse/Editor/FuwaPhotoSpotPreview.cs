@@ -51,6 +51,7 @@ public static class FuwaPhotoSpotPreview
                 else
                 {
                     Arr(a, p.kind, p.order, out var AX, out var SX, out var UX, out var D, out var FF); F = FF;
+                    if (p.distScale > 0f) D *= p.distScale;
                     Vector3 basePos = (p.kind == 0 && p.order == 2) ? chest : ball;
                     for (int i = 0; i < AX.Length; i++)
                     {

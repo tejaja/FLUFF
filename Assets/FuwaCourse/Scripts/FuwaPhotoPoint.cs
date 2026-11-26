@@ -33,6 +33,12 @@ public class FuwaPhotoPoint : UdonSharpBehaviour
     [Tooltip("1か所1枚の時の撮り方（0＝遠く、1＝近く、2＝撃った瞬間。撃たなければ近く）。-1 なら今まで通り（1か所2枚）。角度の種類は order（0〜2）で決まる")]
     public int kind = -1;
 
+    [Tooltip("遠く・近くの写真で、カメラまでの距離の倍率（広い場所を遠くから撮りたいポイント用。2026-11-26 てじゃ「2-5クリスタル広場、もっと遠い斜め上から」）")]
+    public float distScale = 1f;
+
+    [Tooltip("いつも camPose から撮る（場所ごとに決めた構図。広場をまるごと入れたい所など）。ふわふわの方へは向け直す")]
+    public bool fixedCam = false;
+
     private float _shotRun = -1f;
 
     private void OnTriggerEnter(Collider other)

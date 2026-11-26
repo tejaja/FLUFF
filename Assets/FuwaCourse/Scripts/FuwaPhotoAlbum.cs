@@ -348,7 +348,8 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
         if (head == Vector3.zero) head = lp.GetPosition() + Vector3.up * eye;
         Vector3 ball = _ball.transform.position;
         bool placed;
-        if (kind == KindFire) placed = PlaceFireShot(order, chest, head, eye) || PlaceAround(point, order, KindClose, ball, chest);
+        if (point.fixedCam) placed = false;   // camPose から（下の「どこも置けない時」と同じ）
+        else if (kind == KindFire) placed = PlaceFireShot(order, chest, head, eye) || PlaceAround(point, order, KindClose, ball, chest);
         else placed = PlaceAround(point, order, kind, ball, chest);
         if (!placed)
         {
@@ -443,6 +444,7 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
             // 後ろの2つは光るキノコが手前に入る時の予備：前の上から
             ax = new float[] { 0.9f, 0.9f, 0.55f, 0.55f, 1.2f, 1.2f, 0.25f, 0.25f }; sx = new float[] { 0.5f, -0.5f, 0.85f, -0.85f, 0.35f, -0.35f, 0.15f, -0.15f }; ux = new float[] { 0.08f, 0.08f, 0.3f, 0.3f, 0.2f, 0.2f, 0.75f, 0.75f };
         }
+        if (point.distScale > 0f) d *= point.distScale;
         bool playerNear = (chest - ball).magnitude < 12f;
         // 当たりのない物（光るキノコ）が手前に入らない位置を先に。どこも入る時は、いちばん入り方が少ない位置
         float bestBad = 1e9f; Vector3 bestPos = Vector3.zero, bestDir = Vector3.forward; float bestFov = 45f;
