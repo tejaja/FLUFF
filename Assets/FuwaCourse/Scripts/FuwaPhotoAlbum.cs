@@ -40,6 +40,14 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
     public float farDistance = 6.5f;
     [Tooltip("カメラを置けるか調べる時に、ぶつかったらダメな物")]
     public LayerMask obstacleMask = (1 << 0) | (1 << 11);
+    // 2026-11-26 てじゃ「横からの写真でチェックポイントが近いと、手前にチェックポイントが被ることがある」：
+    //  チェックポイントの光るキノコは当たりが根元の丸太だけで、上の調べ方（当たり）では見えない → 球で持っておいて、写真の手前をふさぐ位置はやめる（FuwaPhotoOccluders が入れる）
+    [Tooltip("当たりはないけど写真の手前をふさぐ物（中心）。FuwaPhotoOccluders が入れる")]
+    public Vector3[] occluderCenters;
+    [Tooltip("occluderCenters の半径(m)")]
+    public float[] occluderRadii;
+    [Tooltip("occluderCenters の重み（1＝光るキノコ、クモの巣は透けるので軽め・写す物にかかっても大きく数えない）")]
+    public float[] occluderWeights;
     [Tooltip("写真の大きさ（横）。縦は16:9")]
     public int photoWidth = 1920;   // 2026-10-12 1280→1920（PCのみ。Quest対応する時は Android ビルドで下げる）
     [Tooltip("撮る時に隠すもの（HUDの文字など）")]
@@ -398,7 +406,8 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
         {
             // 横の高い所から景色ごと
             d = farDistance;
-            ax = new float[] { 0.3f, 0.3f, 0.65f, 0.65f, -0.2f, -0.2f }; sx = new float[] { 0.95f, -0.95f, 0.7f, -0.7f, 0.9f, -0.9f }; ux = new float[] { 0.45f, 0.45f, 0.35f, 0.35f, 0.55f, 0.55f };
+            // 後ろの4つは光るキノコ（チェックポイント）が手前に入る時の予備：道の前・後ろの高めから（道の両側のキノコの間を通して見る）
+            ax = new float[] { 0.3f, 0.3f, 0.65f, 0.65f, -0.2f, -0.2f, 0.9f, 0.9f, -0.8f, -0.8f }; sx = new float[] { 0.95f, -0.95f, 0.7f, -0.7f, 0.9f, -0.9f, 0.3f, -0.3f, 0.3f, -0.3f }; ux = new float[] { 0.45f, 0.45f, 0.35f, 0.35f, 0.55f, 0.55f, 0.45f, 0.45f, 0.5f, 0.5f };
         }
         else if (order == 2)
         {
@@ -410,9 +419,12 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
         {
             // 斜め前の低め
             d = closeDistance;
-            ax = new float[] { 0.9f, 0.9f, 0.55f, 0.55f, 1.2f, 1.2f }; sx = new float[] { 0.5f, -0.5f, 0.85f, -0.85f, 0.35f, -0.35f }; ux = new float[] { 0.08f, 0.08f, 0.3f, 0.3f, 0.2f, 0.2f };
+            // 後ろの2つは光るキノコが手前に入る時の予備：前の上から
+            ax = new float[] { 0.9f, 0.9f, 0.55f, 0.55f, 1.2f, 1.2f, 0.25f, 0.25f }; sx = new float[] { 0.5f, -0.5f, 0.85f, -0.85f, 0.35f, -0.35f, 0.15f, -0.15f }; ux = new float[] { 0.08f, 0.08f, 0.3f, 0.3f, 0.2f, 0.2f, 0.75f, 0.75f };
         }
         bool playerNear = (chest - ball).magnitude < 12f;
+        // 当たりのない物（光るキノコ）が手前に入らない位置を先に。どこも入る時は、いちばん入り方が少ない位置
+        float bestBad = 1e9f; Vector3 bestPos = Vector3.zero, bestDir = Vector3.forward; float bestFov = 45f;
         for (int k = 0; k < ax.Length; k++)
         {
             Vector3 pos = basePos + (fwd * ax[k] + side * (sx[k] * pref) + Vector3.up * ux[k]) * d;
@@ -434,9 +446,11 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
                     fov = Mathf.Clamp(ang * 1.1f + (kind == KindFar ? 20f : 14f), 32f, 62f);
                 }
             }
-            Aim(pos, dir, fov);
-            return true;
+            float bad = Occlusion(pos, dir, fov, ball, playerNear ? chest : ball);
+            if (bad < OccludeOk) { Aim(pos, dir, fov); return true; }
+            if (bad < bestBad) { bestBad = bad; bestPos = pos; bestDir = dir; bestFov = fov; }
         }
+        if (bestBad < 1e8f) { Aim(bestPos, bestDir, bestFov); return true; }
         return false;
     }
 
@@ -450,6 +464,7 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
         f = f.sqrMagnitude > 0.0001f ? f.normalized : Vector3.forward;
         Vector3 r = Vector3.Cross(Vector3.up, f);
         Vector3 mid = Vector3.Lerp(chest, m0, 0.5f);
+        float bestBad = 1e9f; Vector3 bestPos = Vector3.zero, bestDir = Vector3.forward; float bestFov = 45f;
         for (int k = 0; k < 2; k++)
         {
             float mm = k == 0 ? 1f : -1f;   // 2回目は左右を入れ替える
@@ -469,9 +484,11 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
             if (Blocked(pos, chest) || Blocked(pos, m0)) continue;
             Vector3 dir = look - pos;
             if (dir.sqrMagnitude < 0.0001f) continue;
-            Aim(pos, dir.normalized, fov);
-            return true;
+            float bad = Occlusion(pos, dir.normalized, fov, chest, m0);
+            if (bad < OccludeOk) { Aim(pos, dir.normalized, fov); return true; }
+            if (bad < bestBad) { bestBad = bad; bestPos = pos; bestDir = dir.normalized; bestFov = fov; }
         }
+        if (bestBad < 1e8f) { Aim(bestPos, bestDir, bestFov); return true; }
         return false;
     }
 
@@ -491,6 +508,60 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
         if (len <= radius) return false;
         RaycastHit hit;
         return Physics.SphereCast(from, radius, d.normalized, out hit, len, obstacleMask, QueryTriggerInteraction.Ignore);
+    }
+
+    // 写真の手前をふさぐ物がどれだけ入るか。0＝入らない
+    //  ・当たりのない物（occluderCenters の球、光るキノコ）：写す物（a・b）より手前で写真に入る球の見た目の大きさ（はしの方は半分に数える）
+    //  ・当たりのある物（木の幹など）：写真の中の 5×3 本の線を飛ばして、写す物より手前で横向きの面（地面・床でない物）に当たる割合
+    //    （今までは写す物への1本の線だけ見ていたので、線の横の幹で写真の半分がふさがることがあった）
+    //  写す物（ふわふわ・自分）にかかる球は大きく数える（それだけは避けたい）
+    const float OccludeOk = 0.2f;   // これ未満なら気にしない（はしに小さく写るくらい）
+    private float Occlusion(Vector3 pos, Vector3 dir, float vfov, Vector3 a, Vector3 b)
+    {
+        float halfV = vfov * 0.5f;
+        float tanV = Mathf.Tan(halfV * Mathf.Deg2Rad), tanH = tanV * (16f / 9f);
+        float halfH = Mathf.Atan(tanH) * Mathf.Rad2Deg;
+        Quaternion rot = Quaternion.LookRotation(dir, Vector3.up);
+        Quaternion inv = Quaternion.Inverse(rot);
+        Vector3 va = a - pos, vb = b - pos;
+        float near = Mathf.Min(va.magnitude, vb.magnitude);
+        float far = Mathf.Max(va.magnitude, vb.magnitude);
+        float bad = 0f;
+        if (occluderCenters != null && occluderRadii != null)
+        {
+            int n = Mathf.Min(occluderCenters.Length, occluderRadii.Length);
+            for (int i = 0; i < n; i++)
+            {
+                Vector3 v = occluderCenters[i] - pos;
+                float r = occluderRadii[i];
+                float dist = v.magnitude;
+                if (dist - r > far) continue;              // 写す物より奥（背景）はいい
+                float w = occluderWeights != null && i < occluderWeights.Length ? occluderWeights[i] : 1f;
+                if (dist <= r + 0.05f) { bad += w >= 1f ? 100f : w; continue; }   // カメラが中（巣の球は大きいので、中にいても巣のすぐそばとは限らない）
+                float ar = Mathf.Asin(r / dist) * Mathf.Rad2Deg;   // 見た目の半径(度)
+                Vector3 loc = inv * v;
+                if (loc.z <= 0f) continue;                 // うしろ
+                float ax = Mathf.Abs(Mathf.Atan2(loc.x, loc.z) * Mathf.Rad2Deg);
+                float ay = Mathf.Abs(Mathf.Atan2(loc.y, loc.z) * Mathf.Rad2Deg);
+                if (ax - ar >= halfH || ay - ar >= halfV) continue;   // 写真の外
+                float size = ar / halfV;
+                if (ax > halfH * 0.6f || ay > halfV * 0.6f) size *= 0.5f;   // はしの方
+                // 写す物にかかる（球が写す物より手前で、向きが重なる）。透ける物（重み1未満）は数えない
+                if (w >= 1f && ((dist - r < va.magnitude && Vector3.Angle(v, va) < ar + 4f) || (dist - r < vb.magnitude && Vector3.Angle(v, vb) < ar + 4f))) size += 10f;
+                bad += size * w;
+            }
+        }
+        int hits = 0;
+        RaycastHit hit;
+        for (int yi = -1; yi <= 1; yi++)
+            for (int xi = -2; xi <= 2; xi++)
+            {
+                Vector3 d = rot * new Vector3(tanH * 0.4f * xi, tanV * 0.6f * yi, 1f);
+                float len = d.magnitude;
+                if (Physics.Raycast(pos, d / len, out hit, near * len - 0.3f, obstacleMask, QueryTriggerInteraction.Ignore) && hit.normal.y < 0.6f) hits++;
+            }
+        bad += hits * 0.1f;
+        return bad;
     }
 
     private bool Blocked(Vector3 from, Vector3 to)

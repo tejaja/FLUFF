@@ -212,6 +212,7 @@ public static class FuwaPhotoAlbumBuilder
         album.hideWhileShooting = hud != null ? hud.GetComponentsInChildren<Renderer>(true) : new Renderer[0];
         UdonSharpEditorUtility.CopyProxyToUdon(album);
         EditorUtility.SetDirty(album);
+        FuwaPhotoOccluders.Fill();   // 当たりのない光るキノコで手前がふさがらないように（2026-11-26）
 
         if (lang != null && lang.album != album) { lang.album = album; UdonSharpEditorUtility.CopyProxyToUdon(lang); EditorUtility.SetDirty(lang); }
         // ゴール（ゴールの奥に結果発表の板を出してもらう）
