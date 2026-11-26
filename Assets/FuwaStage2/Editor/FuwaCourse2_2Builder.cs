@@ -2973,9 +2973,62 @@ public static class FuwaCourse2_2Builder
         if (pathRoot) foreach (var mc in pathRoot.GetComponentsInChildren<MeshCollider>(true)) if (!mc.isTrigger && mc.sharedMesh) topY = Mathf.Max(topY, WorldBounds(mc.transform, mc.sharedMesh.bounds).max.y);
         so.maxFeetY = topY > float.MinValue ? topY : body.position.y + 3f;
         so.copters = Object.FindObjectsOfType<FuwaBambooCopter>(true);   // 竹とんぼを持っている間は無効
+        so.lineY = VolcanoOutLine(root, body.position, so.lineStep, pathRoot, out so.center);
+        if (so.lineY != null) so.maxFeetY = so.lineY.Max();
         var vb = WorldBounds(body, body.GetComponent<MeshCollider>().sharedMesh.bounds); vb.Expand(4f);
         so.areaMin = vb.min; so.areaMax = vb.max;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(so); FuwaStage2WaterTest.NoSync(so);
+    }
+    // 2026-11-26 てじゃ「一番低い地点がジグザグの最終コーナーの焚き火のあるとこあたりの高さで、そこから道そってゴール前まで高くなってく、
+    //  そこからまたゆっくり一番低いとこにもどる」：火山の中心から見た方向ごとのアウトの高さ（1周）
+    //  ・焚き火（ZigSeed のいちばん高い物）の方向 → ゴールの方向：その方向の道の高さ（火山から 40m 以内の道の頂点のいちばん高い所）。焚き火→ゴールで下がらないようにならす
+    //  ・ゴール → 裏側をまわって焚き火：ゴールの高さから焚き火の高さへまっすぐ下げる
+    static float[] VolcanoOutLine(Transform root, Vector3 c, float step, Transform pathRoot, out Vector3 center)
+    {
+        center = c;
+        var low = root.Find("Fire") ? root.Find("Fire").Cast<Transform>().Where(t => t.name.StartsWith("ZigSeed")).OrderByDescending(t => t.position.y).FirstOrDefault() : null;
+        var goal = root.Find("Goal");
+        if (!low || !goal || !pathRoot) { Debug.LogWarning("[2–2] 火山のアウトの線：焚き火(ZigSeed)・Goal・Path のどれかがない"); return null; }
+        System.Func<Vector3, float> Ang = w => { float a = Mathf.Atan2(w.z - c.z, w.x - c.x) * Mathf.Rad2Deg; return a < 0f ? a + 360f : a; };
+        float aLow = Ang(low.position), aHigh = Ang(goal.position), lowY = low.position.y, highY = goal.position.y;
+        int n = Mathf.RoundToInt(360f / step);
+        var meas = new float[n]; for (int k = 0; k < n; k++) meas[k] = float.MinValue;
+        foreach (var mc in pathRoot.GetComponentsInChildren<MeshCollider>(true))
+        {
+            if (mc.isTrigger || !mc.sharedMesh) continue;
+            foreach (var v in mc.sharedMesh.vertices)
+            {
+                var w = mc.transform.TransformPoint(v);
+                if (new Vector2(w.x - c.x, w.z - c.z).magnitude > 40f) continue;
+                int k = Mathf.Clamp(Mathf.RoundToInt(Ang(w) / step) % n, 0, n - 1);
+                meas[k] = Mathf.Max(meas[k], w.y);
+            }
+        }
+        float span = (aLow - aHigh + 360f) % 360f;   // 焚き火からゴールへ、角度が減る向きに道がのぼる
+        var line = new float[n];
+        // 道の側：焚き火から順に（角度を減らしながら）見て、下がらないようにならす
+        float prev = lowY;
+        int steps = Mathf.CeilToInt(span / step);
+        for (int s = 0; s <= steps; s++)
+        {
+            float a = (aLow - s * step + 360f) % 360f;
+            int k = Mathf.RoundToInt(a / step) % n;
+            float t = Mathf.Clamp01(s * step / span);
+            float h = meas[k] > float.MinValue ? meas[k] : Mathf.Lerp(lowY, highY, t);
+            h = Mathf.Clamp(Mathf.Max(h, prev), lowY, highY); prev = h;
+            line[k] = h;
+        }
+        // 裏側：ゴールから焚き火へ（角度を減らしながら）ゆっくり下げる
+        float back = 360f - span;
+        for (int k = 0; k < n; k++)
+        {
+            float a = k * step, d = (aLow - a + 360f) % 360f;
+            if (d <= span + step * 0.5f) continue;
+            float t = Mathf.Clamp01((d - span) / back);
+            line[k] = Mathf.Lerp(highY, lowY, t);
+        }
+        Debug.Log("[2–2] 火山のアウトの線：焚き火 " + aLow.ToString("F0") + "° y" + lowY.ToString("F1") + " → ゴール " + aHigh.ToString("F0") + "° y" + highY.ToString("F1") + "（" + n + "方向）");
+        return line;
     }
     static Bounds WorldBounds(Transform t, Bounds lb)
     {

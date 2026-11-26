@@ -13,6 +13,10 @@ public class FuwaSurfaceOut : UdonSharpBehaviour
     public FuwaBall ball;
     [Tooltip("足（GetPosition）がこの高さ（ワールド y）より下の時だけアウト")]
     public float maxFeetY = 100000f;
+    [Tooltip("2026-11-26 てじゃ「基準ラインを道がグルっと上がってくのに沿わせて」：center から見た方向ごと（lineStep 度きざみ、0°=+x、+z 回り）のアウトの高さ。空なら maxFeetY だけ")]
+    public float[] lineY;
+    public Vector3 center;
+    public float lineStep = 5f;
     [Tooltip("足の真下を調べる長さ(m)")]
     public float probe = 1.2f;
     [Tooltip("この秒数つづけて乗っていたらアウト（一瞬かすっただけは無視）")]
@@ -42,6 +46,14 @@ public class FuwaSurfaceOut : UdonSharpBehaviour
         if (lp == null) return;
         Vector3 p = lp.GetPosition();
         if (p.y >= maxFeetY || p.x < areaMin.x || p.x > areaMax.x || p.z < areaMin.z || p.z > areaMax.z || p.y < areaMin.y) { _since = -1f; return; }
+        if (lineY != null && lineY.Length > 0)
+        {
+            float a = Mathf.Atan2(p.z - center.z, p.x - center.x) * Mathf.Rad2Deg;
+            if (a < 0f) a += 360f;
+            float f = a / lineStep; int n = lineY.Length;
+            int i0 = (int)Mathf.Floor(f) % n; int i1 = (i0 + 1) % n;
+            if (p.y >= Mathf.Lerp(lineY[i0], lineY[i1], f - Mathf.Floor(f))) { _since = -1f; return; }
+        }
         RaycastHit hit;
         bool onMe = Physics.Raycast(p + Vector3.up * 0.4f, Vector3.down, out hit, probe, _mask, QueryTriggerInteraction.Ignore) && hit.collider == _col;
         if (!onMe) { _since = -1f; return; }
