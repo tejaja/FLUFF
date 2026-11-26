@@ -375,6 +375,7 @@ public static class FuwaCourse2_2Builder
         var outSize = new Vector3(lb.size.x + 20f, 2f, lb.size.z + 20f);
         Hazard(root, "BallOut", new Vector3(lb.center.x, -7f, lb.center.z), outSize, false);
         Hazard(root, "PlayerOut", new Vector3(lb.center.x, -9f, lb.center.z), outSize, true);
+        VolcanoSurfaceOut(root);
 
         RegisterCheckpoints();
         // ステージ2にいる時だけ表示
@@ -2953,6 +2954,22 @@ public static class FuwaCourse2_2Builder
     {
         var to = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaTopOut>(g);
         if (to) { UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(to); FuwaStage2WaterTest.NoSync(to); }
+    }
+    // 2026-11-26 てじゃ「デカい山のほうに落下すると、山に乗っちゃう」：火山の上に立ったら落ちた扱い（FuwaSurfaceOut）
+    [MenuItem("FuwaCourse/ステージ2/2–2 火山に乗ったらアウトにする")]
+    public static void VolcanoSurfaceOutMenu() { var r = GameObject.Find("FuwaCourse2_2"); if (r) { VolcanoSurfaceOut(r.transform); UnityEditor.SceneManagement.EditorSceneManager.MarkAllScenesDirty(); } }
+    public static void VolcanoSurfaceOut(Transform root)
+    {
+        var body = root.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "VolcanoBody");
+        if (!body || !body.GetComponent<Collider>()) { Debug.LogWarning("[2–2] VolcanoBody（当たりつき）がない"); return; }
+        var ball = Object.FindObjectsOfType<FuwaBall>(true).FirstOrDefault();
+        var so = body.GetComponent<FuwaSurfaceOut>();
+        if (!so) so = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaSurfaceOut>(body.gameObject);
+        so.ball = ballProxy ? ballProxy : ball;
+        // てじゃ「まったくのれないのもやだな」：まもの広場の床（Path5 のはじまり）より 3m 下＝道より下のすそだけアウト
+        var p5 = root.Find("Path/Path5")?.GetComponent<Collider>();
+        so.maxFeetY = p5 ? p5.bounds.min.y - 2f : body.position.y - 3f;
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(so); FuwaStage2WaterTest.NoSync(so);
     }
     static void Hazard(Transform root, string name, Vector3 lp, Vector3 size, bool player, Quaternion? rot = null)
     {
