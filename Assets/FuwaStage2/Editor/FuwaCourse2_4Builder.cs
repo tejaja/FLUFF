@@ -1022,7 +1022,8 @@ public static class FuwaCourse2_4Builder
         }
         return g;
     }
-    static Mesh SpurMesh(int z, float mod, float th, string name) => SaveMesh2(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(z, 8, mod), th, name, Vector2.zero));
+    // 2026-11-28 てじゃ「ポンプのそばの歯車の歯の形がおかしい」：あそび（Backlash 0.04）がモジュール 0.5 用のままで、モジュール 0.05 の小さい歯車だと歯が細りすぎて歯先で左右の歯面が入れかわり、トゲになっていた → あそびもモジュールに比例
+    static Mesh SpurMesh(int z, float mod, float th, string name) => SaveMesh2(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(z, 8, mod, 0f, 0f, FuwaGearTest.Backlash * mod / FuwaGearTest.M), th, name, Vector2.zero));
     static void CwShaft(Transform g, float y0, float y1, float d)
     {
         // 2026-11-08 てじゃ「ギアの中央のパーツの先端にZファイト多数」：軸・線・カラーの上の面が同じ高さだった → 軸と線はカラーの中で止める

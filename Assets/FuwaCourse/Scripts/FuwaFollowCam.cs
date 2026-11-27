@@ -271,6 +271,56 @@ public class FuwaFollowCam : UdonSharpBehaviour
         if (playgroundBalls != null) foreach (FuwaSharedBall b in playgroundBalls) if (b != null) b.showAway = on;
     }
 
+    // 2026-11-28 てじゃ「ステージ2ロビーでおっかけカメラでステージ1の人を見ると、ステージ1（上の島）の影が落ちてステージ2ロビーが真っ暗」：
+    //  ステージ1（ロビー・コース・入口・あそびば）はステージ2の真上にあるので、映すためだけに出すと太陽の影がステージ2に落ちる。
+    //  → 映すためだけに出している、自分と違うステージの物は影を落とさない（出し入れ・自分のステージが変わった時に組み直す。元の設定は覚えて戻す）
+    private Renderer[] _shadowOff = new Renderer[0];
+    private int[] _shadowMode = new int[0];
+    private int _shadowN;
+    private int _shadowKey = -999999;
+    private void UpdateShadowOverrides()
+    {
+        int myStage = MyStage();
+        int key = ViewKey() * 1000 + (_shownLobby ? 1 : 0) + (_shownHub ? 2 : 0) + (_shownPlayground ? 4 : 0) + (_shownStage2Lobby ? 8 : 0) + (_shownCourse + 1) * 16;
+        if (key == _shadowKey) return;
+        _shadowKey = key;
+        for (int i = 0; i < _shadowN; i++) if (_shadowOff[i] != null) _shadowOff[i].shadowCastingMode = (UnityEngine.Rendering.ShadowCastingMode)_shadowMode[i];
+        _shadowN = 0;
+        if (myStage != 1)
+        {
+            if (_shownLobby && !(MyArea() == soloArea && MyStage() == 1)) ShadowsOff(lobbyRoot);
+            if (_shownHub && MyArea() != hubArea) ShadowsOff(hubRoot);
+            if (_shownPlayground && MyArea() != playgroundArea) ShadowsOff(playgroundRoot);
+        }
+        if (_shownCourse >= 0 && !AreaShowsCourse(_shownCourse) && StageOfCourse(_shownCourse) != myStage)
+        {
+#if UNITY_ANDROID || UNITY_IOS
+            GameObject[] arr = courseLites;
+#else
+            GameObject[] arr = courseRoots;
+#endif
+            if (arr != null && _shownCourse < arr.Length) ShadowsOff(arr[_shownCourse]);
+        }
+    }
+    private void ShadowsOff(GameObject g)
+    {
+        if (g == null) return;
+        Renderer[] rs = g.GetComponentsInChildren<Renderer>(true);
+        if (_shadowOff.Length < _shadowN + rs.Length)
+        {
+            Renderer[] nr = new Renderer[_shadowN + rs.Length + 64]; int[] nm = new int[nr.Length];
+            for (int i = 0; i < _shadowN; i++) { nr[i] = _shadowOff[i]; nm[i] = _shadowMode[i]; }
+            _shadowOff = nr; _shadowMode = nm;
+        }
+        for (int i = 0; i < rs.Length; i++)
+        {
+            Renderer r = rs[i];
+            if (r == null || r.shadowCastingMode == UnityEngine.Rendering.ShadowCastingMode.Off) continue;
+            _shadowOff[_shadowN] = r; _shadowMode[_shadowN] = (int)r.shadowCastingMode; _shadowN++;
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        }
+    }
+
     private void SetCourse(int k, bool on)
     {
 #if UNITY_ANDROID || UNITY_IOS
@@ -470,6 +520,7 @@ public class FuwaFollowCam : UdonSharpBehaviour
             ShowStage2Lobby(false);
             ShowHub(false);
             ShowPlayground(false);
+            UpdateShadowOverrides();
             if (_watchedGhost != null) { _watchedGhost.watched = false; _watchedGhost = null; }
             if (monitorFluff != null && monitorFluff.gameObject.activeSelf) monitorFluff.gameObject.SetActive(false);
             return;
@@ -534,6 +585,7 @@ public class FuwaFollowCam : UdonSharpBehaviour
         ShowStage2Lobby(tSolo && !tSeen && tStage == 2);
         ShowPlayground(who != lp && ghost != null && ghost.GetArea() == playgroundArea && MyArea() != playgroundArea);
         ShowHub(who != lp && ghost != null && ghost.GetArea() == hubArea && MyArea() != hubArea);
+        UpdateShadowOverrides();
         bool inPlayground = who == lp ? MyArea() == playgroundArea : (ghost != null && ghost.GetArea() == playgroundArea);
         if (inPlayground) tgt = NearestPlaygroundBall(p);   // あそびば：近くのみんなのふわふわ（無ければその人だけ）
         else if (who == lp) tgt = FindTarget(p);

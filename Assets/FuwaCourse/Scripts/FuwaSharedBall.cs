@@ -668,8 +668,8 @@ public class FuwaSharedBall : UdonSharpBehaviour
     private void SendState()
     {
         // 床に止まっている間（チルルームで「消えない」の時）は送る間隔をゆっくりに
-        bool resting = _rb.isKinematic || _rb.velocity.sqrMagnitude < 0.0025f;
-        _nextSend = Time.time + (resting ? heartbeatInterval : correctionInterval);
+        bool resting = (_rb.isKinematic || _rb.velocity.sqrMagnitude < 0.0025f) && Time.time - _lastWindAt > 0.3f;
+        _nextSend = Time.time + (resting ? heartbeatInterval : (Time.time - _lastWindAt < 0.3f ? windSendInterval : correctionInterval));
         _sendSoon = false;
         RequestSerialization();
     }
@@ -847,6 +847,9 @@ public class FuwaSharedBall : UdonSharpBehaviour
     private Vector3 _wind;
     // 風のギミックから物理の1回ごとに呼ばれる（OnTriggerStay）。次の FixedUpdate で加速度として足す
     public void AddWind(Vector3 accel) { _wind += accel; }
+    [Tooltip("風を受けている間（持ち主）、位置を送る間隔（秒）")]
+    public float windSendInterval = 0.12f;
+    private float _lastWindAt = -10f;
     // 2026-11-28 てじゃ「2人で泡と炎上を混ぜると、相手の画面に空中でピョンピョンはねて撃っても戻ってくる玉が出る」：
     //  泡に包まれたかを画面ごとに決めていて、持ち主の画面では包まれていないのに相手の画面では包まれ、持ち主の位置への補正と泡の持ち上げが引っぱり合っていた。
     //  → 包むかは持ち主の画面だけで決めて同期（_sBubbled）。ほかの画面はこれが立っている間だけ泡で運ぶ（FuwaPlaygroundBubbleClam）
@@ -867,9 +870,11 @@ public class FuwaSharedBall : UdonSharpBehaviour
     {
         Init();
         if (_waiting || _popped || _rb.isKinematic || Charring()) return;
-        _rb.velocity = _rb.velocity + velocityChange;
         PlayPuff(Mathf.Clamp01(velocityChange.magnitude / Mathf.Max(0.01f, squashFullAt)));
-        if (Networking.IsOwner(gameObject)) _sendSoon = true;
+        // 2026-11-28 てじゃ「炎上・泡・竜巻を組み合わせるとバグる」：はじきは持ち主の画面だけで動かす（ほかの画面は持ち主から届く位置を追う）
+        if (!Networking.IsOwner(gameObject)) return;
+        _rb.velocity = _rb.velocity + velocityChange;
+        _sendSoon = true;
     }
 
     private void FixedUpdate()
@@ -882,7 +887,14 @@ public class FuwaSharedBall : UdonSharpBehaviour
         _gravScale = 0f;
         _rb.AddForce(Vector3.down * fallAcceleration * g, ForceMode.Acceleration);
         // 風のギミック（うちわ・扇風機など）から足された加速度（全員の画面で同じ風を当てるので、ずれにくい）
-        if (_wind.sqrMagnitude > 0f) { _rb.AddForce(DampWind(_wind), ForceMode.Acceleration); _wind = Vector3.zero; }
+        // 2026-11-28 風のギミック（泡・竜巻・うちわ・扇風機）も持ち主の画面だけで効かせる。前は全員の画面で同じ風を当てていたが、
+        //  画面ごとの玉の位置が少しずれていると当たる・当たらないが分かれ、持ち主の位置への補正と引っぱり合って戻ってこられない玉ができていた。
+        //  ほかの画面は、風を受けている間は持ち主が細かく送る位置（windSendInterval）を追う
+        if (_wind.sqrMagnitude > 0f)
+        {
+            if (Networking.IsOwner(gameObject)) { _rb.AddForce(DampWind(_wind), ForceMode.Acceleration); _lastWindAt = Time.time; }
+            _wind = Vector3.zero;
+        }
         Vector3 v = _rb.velocity;
         if (v.y < -maxFallSpeed * g) v.y = -maxFallSpeed * g;
         if (v.magnitude > maxSpeed) v = v.normalized * maxSpeed;
