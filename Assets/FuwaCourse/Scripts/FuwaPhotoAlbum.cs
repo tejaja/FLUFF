@@ -132,6 +132,10 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
     private const int KindFar = 0;
     private const int KindClose = 1;
     private const int KindFire = 2;
+    // 2026-11-27 てじゃ「かってにスクショ、アバター寄りになるのを多めに。1〜2枚くらい引きもあっていい」：自分（アバター）を主役にした1枚
+    private const int KindAvatar = 3;
+    [Tooltip("アバター寄り：自分からの距離（目の高さ1.3mの時。身長に合わせて伸び縮み）・画角")]
+    public float avatarDistance = 1.7f, avatarFov = 38f;
     private Material _feedMat;
     private int _feedShown = -1;
 
@@ -350,6 +354,7 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
         bool placed;
         if (point.fixedCam) placed = false;   // camPose から（下の「どこも置けない時」と同じ）
         else if (kind == KindFire) placed = PlaceFireShot(order, chest, head, eye) || PlaceAround(point, order, KindClose, ball, chest);
+        else if (kind == KindAvatar) placed = PlaceAvatar(point, lp, chest, head, eye, ball) || PlaceAround(point, order, KindClose, ball, chest);
         else placed = PlaceAround(point, order, kind, ball, chest);
         if (!placed)
         {
@@ -470,6 +475,43 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
                 }
             }
             float bad = Occlusion(pos, dir, fov, ball, playerNear ? chest : ball);
+            if (bad < OccludeOk) { Aim(pos, dir, fov); return true; }
+            if (bad < bestBad) { bestBad = bad; bestPos = pos; bestDir = dir; bestFov = fov; }
+        }
+        if (bestBad < 1e8f) { Aim(bestPos, bestDir, bestFov); return true; }
+        return false;
+    }
+
+    // アバター寄り：自分の正面のななめ前から、胸〜顔あたりを真ん中に。ふわふわが近ければ少しそっちへ向けて一緒に入れる。
+    //  左右はポイントごとに決まった側（camPose の側）から試し、だめなら反対・正面寄り・真横の順
+    private bool PlaceAvatar(FuwaPhotoPoint point, VRCPlayerApi lp, Vector3 chest, Vector3 head, float eye, Vector3 ball)
+    {
+        float s = Mathf.Clamp(eye / 1.3f, 0.5f, 2.5f);
+        Vector3 f = lp.GetRotation() * Vector3.forward; f.y = 0f;
+        if (f.sqrMagnitude < 0.0001f) { f = ball - chest; f.y = 0f; }
+        f = f.sqrMagnitude > 0.0001f ? f.normalized : Vector3.forward;
+        Vector3 rgt = Vector3.Cross(Vector3.up, f);
+        float pref = Vector3.Dot(point.camPose.position - chest, rgt) >= 0f ? 1f : -1f;
+        Vector3 look = Vector3.Lerp(chest, head, 0.45f);
+        bool ballNear = (ball - chest).magnitude < 4f;
+        float[] angs = { 35f, -35f, 55f, -55f, 18f, -18f, 80f, -80f };
+        float[] dist = { 1f, 1f, 1.05f, 1.05f, 1.1f, 1.1f, 1.15f, 1.15f };
+        float bestBad = 1e9f; Vector3 bestPos = Vector3.zero, bestDir = Vector3.forward; float bestFov = avatarFov;
+        for (int k = 0; k < angs.Length; k++)
+        {
+            Vector3 d = Quaternion.Euler(0f, angs[k] * pref, 0f) * f;
+            Vector3 pos = look + (d * (avatarDistance * dist[k]) + Vector3.up * 0.12f) * s;
+            if (Physics.CheckSphere(pos, 0.2f, obstacleMask, QueryTriggerInteraction.Ignore)) continue;
+            if (Blocked(pos, head) || Blocked(pos, chest)) continue;
+            Vector3 dC = (look - pos).normalized;
+            Vector3 dir = dC; float fov = avatarFov;
+            if (ballNear && !Blocked(pos, ball))
+            {
+                Vector3 dB = (ball - pos).normalized;
+                float ang = Vector3.Angle(dB, dC);
+                if (ang < 40f) { dir = (dC * 0.72f + dB * 0.28f).normalized; fov = Mathf.Clamp(ang * 1.15f + avatarFov - 6f, avatarFov, 54f); }
+            }
+            float bad = Occlusion(pos, dir, fov, chest, head);
             if (bad < OccludeOk) { Aim(pos, dir, fov); return true; }
             if (bad < bestBad) { bestBad = bad; bestPos = pos; bestDir = dir; bestFov = fov; }
         }

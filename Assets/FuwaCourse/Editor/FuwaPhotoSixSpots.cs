@@ -12,7 +12,7 @@ using UnityEngine;
 //  ・戻す：メニュー「…を3か所×2枚にもどす」（足したポイントを消して slot/kind を -1 に）。git のタグ photo-3x2-before-6spots も
 public static class FuwaPhotoSixSpots
 {
-    const int KindFar = 0, KindClose = 1, KindFire = 2;
+    const int KindFar = 0, KindClose = 1, KindFire = 2, KindAvatar = 3;   // 2026-11-27 アバター寄り（てじゃ「アバター寄りを多めに、引きは1〜2枚」）
     const string AddPrefix = "PhotoPointAdd";
 
     [MenuItem("FuwaCourse/済み（押す前に相談）/かってにスクショ：6か所×1枚にする")]
@@ -109,14 +109,14 @@ public static class FuwaPhotoSixSpots
         // 撮り方を配る：今あるポイントは今までの1枚目の撮り方（場所と構図を決めた時の主役の1枚）。2枚目しか撮らないポイント（1b）は今までの2枚目
         //  足したポイントには、残りの撮り方（6枚の組み合わせ：遠く0・撃った瞬間0・近く1・撃った瞬間1・後ろ上から2・上から2）を道順に
         var spots = nodes.Where(n => !n.isEnd).ToList();
-        var all = new List<(int kind, int order)> { (KindFar, 0), (KindFire, 0), (KindClose, 1), (KindFire, 1), (KindFar, 2), (KindClose, 2) };
+        var all = new List<(int kind, int order)> { (KindFar, 0), (KindFire, 0), (KindClose, 1), (KindFire, 1), (KindAvatar, 2), (KindAvatar, 1) };   // 2026-11-27 後ろ上から・上から → アバター寄り2枚
         var assign = new Dictionary<Node, (int kind, int order)>();
         foreach (var n in spots)
         {
             if (n.pt == null) continue;
             int o = OrigOrder(n.pt); if (o < 0) o = Mathf.Clamp(n.pt.order, 0, 2);
-            (int, int) k = n.pt.takeFirst ? (o == 0 ? (KindFar, 0) : o == 1 ? (KindClose, 1) : (KindFar, 2))
-                                          : (o <= 1 ? (KindFire, o) : (KindClose, 2));
+            (int, int) k = n.pt.takeFirst ? (o == 0 ? (KindFar, 0) : o == 1 ? (KindClose, 1) : (KindAvatar, 2))
+                                          : (o <= 1 ? (KindFire, o) : (KindAvatar, 1));
             if (!all.Contains(k)) k = all[0];
             all.Remove(k); assign[n] = k;
         }
@@ -141,7 +141,7 @@ public static class FuwaPhotoSixSpots
             Undo.RecordObject(p, "photo 6");
             p.slot = i; p.kind = kind; p.order = order;
             UdonSharpEditorUtility.CopyProxyToUdon(p); EditorUtility.SetDirty(p);
-            made.Add((i + 1) + ":" + p.name + "(" + (kind == KindFire ? "撃" : kind == KindFar ? "遠" : "近") + order + ")");
+            made.Add((i + 1) + ":" + p.name + "(" + (kind == KindFire ? "撃" : kind == KindFar ? "遠" : kind == KindAvatar ? "人" : "近") + order + ")");
         }
         return string.Join(" ", made);
     }
