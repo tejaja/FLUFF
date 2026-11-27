@@ -399,7 +399,7 @@ public static class FuwaPlaygroundBuilder
             else { bc.center = new Vector3(0f, 0.28f, -0.03f); bc.size = new Vector3(0.38f, 0.58f, 0.18f); }
             var pk = go.AddComponent<VRC.SDK3.Components.VRCPickup>();
             pk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any;
-            pk.InteractionText = uchiwa ? "うちわ" : "せんぷうき"; pk.UseText = uchiwa ? "あおぐ" : "風 ON/OFF"; pk.proximity = 2f;
+            pk.InteractionText = uchiwa ? "うちわ" : "せんぷうき"; pk.UseText = uchiwa ? "あおぐ" : "オン / オフ";   // 2026-11-27 てじゃ「オンオフ式のは オン/オフに統一」 pk.proximity = 2f;
             go.AddComponent<VRC.SDK3.Components.VRCObjectSync>();
             var fan = UdonSharpUndo.AddComponent<FuwaHandFan>(go);
             var nozzle = new GameObject("Nozzle").transform; nozzle.SetParent(go.transform, false);
@@ -2167,7 +2167,7 @@ public static class FuwaPlaygroundBuilder
         var col = root.AddComponent<SphereCollider>(); col.isTrigger = true; col.radius = r;
         var rb = root.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
         var pk = root.AddComponent<VRC.SDK3.Components.VRCPickup>();
-        pk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; pk.InteractionText = "まもののぬいぐるみ（トリガーで起こす・寝かせる）"; pk.UseText = "起こす・寝かせる"; pk.proximity = 2f;
+        pk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; pk.InteractionText = "まもののぬいぐるみ（トリガーで起こす・寝かせる）"; pk.UseText = "オン / オフ";   // 2026-11-27 オンオフ式はそろえる（まものも） pk.proximity = 2f;
         // 位置は VRCObjectSync を使わず、FuwaPlaygroundPlush が動きの区切りを同期してみんなの画面で計算する（2026-10-14 てじゃ「オーナー以外が撃つとラグって見える」）
         AudioSource Copy(string n, string as_) { var s = e.transform.Find(n); if (s == null) return null; var a = Object.Instantiate(s.gameObject, root.transform, false); a.name = as_; return a.GetComponent<AudioSource>(); }
         var boing = Copy("JumpSfx", "Boing");
