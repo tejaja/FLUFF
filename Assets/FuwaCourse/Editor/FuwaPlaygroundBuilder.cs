@@ -1861,7 +1861,7 @@ public static class FuwaPlaygroundBuilder
         FullFloorSwirl(tw.transform);
         foreach (var t in tw.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
         // たね：ころんとした水色の玉。竜巻の上に浮かべておく
-        var seed = GameObject.CreatePrimitive(PrimitiveType.Sphere); seed.name = "TornadoSeed"; seed.layer = 13;
+        var seed = GameObject.CreatePrimitive(PrimitiveType.Sphere); seed.name = "TornadoSeed"; seed.layer = 13; seed.GetComponent<SphereCollider>().isTrigger = true;   // 2026-11-27 てじゃ「たねはそもそもふわふわに当たらなくていい」
         seed.transform.SetParent(slot, false); seed.transform.position = slot.position + Vector3.up * 1.5f; seed.transform.localScale = Vector3.one * 0.26f;
         GameObjectUtility.SetStaticEditorFlags(seed, 0);
         seed.GetComponent<MeshRenderer>().sharedMaterial = Mat("Playground_TornadoSeed", "Assets/FuwaCourse/Materials/Goal_Ground.mat", new Color(0.6f, 0.95f, 0.9f));
@@ -1928,7 +1928,7 @@ public static class FuwaPlaygroundBuilder
     // 持って置ける玉（たね）：VRCPickup＋VRCObjectSync、手を離すとその場に浮く
     static GameObject Seed(Transform slot, string name, string label, Color col, float size, float height)
     {
-        var seed = GameObject.CreatePrimitive(PrimitiveType.Sphere); seed.name = name; seed.layer = 13;
+        var seed = GameObject.CreatePrimitive(PrimitiveType.Sphere); seed.name = name; seed.layer = 13; seed.GetComponent<SphereCollider>().isTrigger = true;   // 2026-11-27 たねはふわふわに当たらない（持つ判定だけ）
         seed.transform.SetParent(slot, false); seed.transform.position = slot.position + Vector3.up * height; seed.transform.localScale = Vector3.one * size;
         GameObjectUtility.SetStaticEditorFlags(seed, 0);
         var m = Mat("Playground_" + name, "Assets/FuwaCourse/Materials/Goal_Ground.mat", col);
