@@ -812,7 +812,7 @@ public static class FuwaPlaygroundBuilder
     {
         var heldMat = Object.FindObjectsOfType<FuwaThrowRock>(true).First().heldMaterial;
         EnsureProgram("FuwaMovableMushroom");
-        foreach (var (slotName, label) in new[] { ("Unlock6", "かい"), ("Unlock7", "ようがん"), ("Unlock8", "こおりのたね"), ("Unlock9", "はぐるま") })
+        foreach (var (slotName, label) in new[] { ("Unlock6", "あわ貝"), ("Unlock7", "ようがん"), ("Unlock8", "こおりのたね"), ("Unlock9", "はぐるま") })
         {
             var slot = toys.Find(slotName); if (slot == null) continue;
             var oldGrab = slot.Find("Grab"); var body = slot.Find("Body");
@@ -1113,6 +1113,8 @@ public static class FuwaPlaygroundBuilder
         var bb = new Bounds(); bool first = true;
         foreach (var r in clam.GetComponentsInChildren<Renderer>(true)) { var lb = r.bounds; if (first) { bb = lb; first = false; } else bb.Encapsulate(lb); }
         var box = clam.AddComponent<BoxCollider>(); box.center = clam.transform.InverseTransformPoint(bb.center); box.size = Vector3.Scale(bb.size, new Vector3(1f / sc, 1f / sc, 1f / sc));
+        // 2026-11-27 てじゃ「貝の持とうとした時の判定、違和感」：この当たり（ふつうのレイヤー）が持つ判定（Grab）とほぼ同じ大きさで、持つためのレイがこっちに当たっていた（こおりのたねと同じ）→ 内側へ小さく（底はそのまま）
+        { var s0 = box.size; float bottom = box.center.y - s0.y * 0.5f; var ns = new Vector3(s0.x * 0.78f, s0.y * 0.85f, s0.z * 0.78f); box.size = ns; box.center = new Vector3(box.center.x, bottom + ns.y * 0.5f, box.center.z); }
         var bc = UdonSharpUndo.AddComponent<FuwaPlaygroundBubbleClam>(clam);
         bc.lid = lid; bc.mouth = mouth; bc.spawner = Object.FindObjectsOfType<FuwaPlaygroundSpawner>(true).First();
         mouth.rotation = slot.rotation;   // 泡は島の真ん中の方へ（slot の +Z）
@@ -1137,7 +1139,7 @@ public static class FuwaPlaygroundBuilder
         bc.popSound = CopyAs(src.popSound, "PopSound"); bc.captureSound = CopyAs(src.captureSound, "CaptureSound");
         if (src.popFx != null) { var fx = Object.Instantiate(src.popFx.gameObject, slot, false); fx.name = "PopFx"; fx.transform.localPosition = Vector3.zero; bc.popFx = fx.GetComponent<ParticleSystem>(); }
         UdonSharpEditorUtility.CopyProxyToUdon(bc);
-        { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(bc); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Manual; ub.interactText = "あわ"; EditorUtility.SetDirty(ub); } }
+        { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(bc); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Manual; ub.interactText = "あわ貝"; EditorUtility.SetDirty(ub); } }
     }
 
     // 2–2 火炎放射の岩：コース2–2 の溶岩の岩＋火炎放射の炎（FlameMesh）。クリックでオン／オフ（同期）、炎は島の真ん中の方へ
