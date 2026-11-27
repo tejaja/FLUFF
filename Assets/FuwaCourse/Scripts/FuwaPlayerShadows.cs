@@ -47,6 +47,8 @@ public class FuwaPlayerShadows : UdonSharpBehaviour
     public float receiverUpTol = 0.2f;
     [Tooltip("足元の地面より下の段に何mまで影を落とすか")]
     public float receiverDownTol = 0.5f;
+    [Tooltip("自分からこれより遠い人の影は出さない(m)。地面の計算の人数を減らす")]
+    public float receiverMaxView = 40f;
 
     [Header("リアルタイムの影")]
     public Light sun;
@@ -177,6 +179,7 @@ public class FuwaPlayerShadows : UdonSharpBehaviour
             VRCPlayerApi p = _players[i];
             if (p == null || !Utilities.IsValid(p)) continue;
             Vector3 pos = p.GetPosition();
+            if ((pos - me).sqrMagnitude > receiverMaxView * receiverMaxView) continue;   // 遠い人は線も飛ばさない
             RaycastHit hit;
             if (!Physics.Raycast(pos + Vector3.up * 0.4f, Vector3.down, out hit, maxDistance, groundMask, QueryTriggerInteraction.Ignore)) continue;
             float h = Mathf.Max(0f, hit.distance - 0.4f);
@@ -186,6 +189,7 @@ public class FuwaPlayerShadows : UdonSharpBehaviour
             float a = nearAlpha * (1f - k);
             if (a <= 0.001f) continue;
             float dd = (pos - me).sqrMagnitude;
+            if (dd > receiverMaxView * receiverMaxView) continue;
             int slot = n;
             if (n >= 16)
             {

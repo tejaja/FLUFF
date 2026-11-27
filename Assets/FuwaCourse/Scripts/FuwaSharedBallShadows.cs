@@ -28,6 +28,9 @@ public class FuwaSharedBallShadows : UdonSharpBehaviour
     public bool receiver = true;
     public float receiverUpTol = 0.2f;
     public float receiverDownTol = 0.5f;
+    [Tooltip("自分からこれより遠いふわふわの影は出さない(m)")]
+    public float receiverMaxView = 40f;
+    private Vector3 _me;
     private Vector4[] _bb = new Vector4[16];
     private Vector4[] _bq = new Vector4[16];
     private int _idBB, _idBQ, _idBBCount;
@@ -70,6 +73,8 @@ public class FuwaSharedBallShadows : UdonSharpBehaviour
         if (_recv)
         {
             int c = 0;
+            VRCPlayerApi lp = Networking.LocalPlayer;
+            _me = lp != null ? lp.GetPosition() : Vector3.zero;
             for (int i = 0; i < balls.Length && c < 16; i++) if (UpdateRecv(i, c)) c++;
             VRCShader.SetGlobalVectorArray(_idBB, _bb);
             VRCShader.SetGlobalVectorArray(_idBQ, _bq);
@@ -84,6 +89,7 @@ public class FuwaSharedBallShadows : UdonSharpBehaviour
         FuwaSharedBall b = balls[i];
         if (b == null || !b.gameObject.activeInHierarchy || !b.IsFlying()) return false;
         Vector3 p = b.transform.position;
+        if ((p - _me).sqrMagnitude > receiverMaxView * receiverMaxView) return false;
         RaycastHit hit;
         if (!Physics.Raycast(p, Vector3.down, out hit, maxDistance, groundMask, QueryTriggerInteraction.Ignore)) return false;
         float k = b.transform.lossyScale.x / Mathf.Max(0.01f, baseBallSize);
