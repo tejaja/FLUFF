@@ -47,7 +47,10 @@ public static class FuwaHowToFoldSetup
         var title = h.Find("FoldTitle").GetComponent<TMPro.TextMeshPro>();
         title.font = AssetDatabase.LoadAssetAtPath<TMPro.TMP_FontAsset>("Assets/FuwaCourse/Fonts/DarumadropOne SDF Dyn.asset");
         title.fontSharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Fonts/DarumadropOne SDF Board.mat");
-        title.fontSize = 1.7f;   // Daruma は字が小さめに見えるので（本文と同じ 1.3 だと小さかった）
+        title.fontSize = 2.1f;   // Daruma は字が小さめに見えるので（本文と同じ 1.3 → 1.7 → てじゃ「もっと大きく」）
+        // Daruma は字が行の中で下に寄るので、そのぶん上へ（2.1 の大きさで字のまん中が −0.05 くらい。てじゃ「ビミョーに下によってる」）
+        const float TitleLift = 0.05f;
+        { var lp = title.transform.localPosition; title.transform.localPosition = new Vector3(lp.x, CenterY + TitleLift, lp.z); }
         EditorUtility.SetDirty(title);
         var body = h.Find("Text").GetComponent<TMPro.TextMeshPro>();
         string Hide(string s) => s.Replace("<color=#FF6B5C>あそびかた</color>", "<color=#FF6B5C00>あそびかた</color>").Replace("<color=#FF6B5C>How to Play</color>", "<color=#FF6B5C00>How to Play</color>");
@@ -65,7 +68,7 @@ public static class FuwaHowToFoldSetup
             }
         }
         var fold = h.GetComponent<FuwaHowToFold>();
-        if (fold != null) { fold.keepTitle = true; UdonSharpEditorUtility.CopyProxyToUdon(fold); EditorUtility.SetDirty(fold); }
+        if (fold != null) { fold.keepTitle = true; fold.titleClosedY = CenterY + TitleLift; fold.titleOpenY = TitleOpenY + TitleLift; UdonSharpEditorUtility.CopyProxyToUdon(fold); EditorUtility.SetDirty(fold); }
     }
 
     public static void MakeClosedButton(Transform h, GameObject open)
