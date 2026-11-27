@@ -60,8 +60,8 @@ public static class FuwaPracticeTutorial
             "<size=130%><color=#FF6B5C>上を向きすぎに注意</color></size>\n上に撃つと前に飛ばない\n前に行くならまっすぐ撃とう",   // 2026-11-24 てじゃ
             "<size=130%><color=#FF6B5C>Don't aim too high</color></size>\nShooting upward won't move it forward\nTo go forward, shoot straight"),
         new Bay(22.5f, "Center",
-            "<size=130%><color=#FF6B5C>端に当てよう</color></size>\n端に当てると大きく曲がる\n飛ぶ方向をコントロールしよう！",   // 2026-11-24 てじゃ「もーっとシンプルに」
-            "<size=130%><color=#FF6B5C>Hit it with the edge</color></size>\nThe edge of your shot makes it curve a lot\nControl where it flies!"),
+            "<size=130%><color=#FF6B5C>端に当てよう</color></size>\n外側に当てると引き寄せる\n飛ぶ方向をコントロールしよう！",   // 2026-11-24 てじゃ「もーっとシンプルに」
+            "<size=130%><color=#FF6B5C>Hit it with the edge</color></size>\nThe outer edge of your shot pulls it in\nControl where it flies!"),
         new Bay(0f, "Air",
             "<size=130%><color=#FF6B5C>空気ぎれ</color></size>\n連打すると空気がなくなる\nチャージで一気に回復\n撃つのを止めればゆっくり回復",   // 2026-11-24 てじゃ
             "<size=130%><color=#FF6B5C>Running out of air</color></size>\nRapid taps use up your air\nCharging refills it at once\nStop shooting and it refills slowly"),
