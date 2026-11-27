@@ -27,9 +27,12 @@ public class FuwaPlayerShadows : UdonSharpBehaviour
     // 低すぎると凸凹の地面の出っぱりに影が乗らなくなる（てじゃ「凸凹の地面とかおかしくならない？」）ので、手が床すれすれの時だけ乗る程度
     // 4cm でも床に手をつくと指（床から0〜2cm）に全開で乗ったまま（てじゃ「あんまかわってない」）→ 3cm にして、床から fadeFrom より上はだんだん薄く（てじゃ A案）
     [Tooltip("当たった地面から上に何mの表面に描くか（ここで影が消える）")]
-    public float decalAboveGround = 0.03f;
+    public float decalAboveGround = 0.05f;   // 2026-11-28 てじゃ「離れると足元のフチだけ影が消える」：深度の誤差で地面がふちをこえていた → 3cm→5cm、薄くし始める所も 0.5cm→2cm
     [Tooltip("地面からこの高さ(m)までは影の濃さそのまま、そこから decalAboveGround にかけて薄く")]
-    public float fadeFrom = 0.005f;
+    public float fadeFrom = 0.02f;
+    [Tooltip("影の円のまわり（半径のこの割合）にも下へレイを飛ばし、いちばん高い地面（足もとより stepUp 以内）を影の地面にする。小さい段差（デッキの板・道のふち）で影が欠けないように（2026-11-28 てじゃ）")]
+    public float probeRadius = 0.35f;
+    public float stepUp = 0.15f;
     [Tooltip("影を塗る面の向き（地面の上向きとの dot）。ほかのうそ影と同じ 0.55〜0.85（厳しくすると凸凹の地面で影が欠ける）")]
     public float upMin = 0.55f;
     public float upMax = 0.85f;
@@ -101,7 +104,21 @@ public class FuwaPlayerShadows : UdonSharpBehaviour
             if (decal)
             {
                 // 箱で囲んだ範囲の実際の地面にだけ描く（崖のふちで空中に浮かない）
-                t.position = hit.point + hit.normal * ((decalAboveGround - decalBelow) * 0.5f);
+                // まわりの少し高い地面（段差の上の段）も影の地面に入るよう、まわりのいちばん高い所を地面にする（低い所は decalBelow の範囲で塗られる）
+                Vector3 gp = hit.point;
+                if (probeRadius > 0f && hit.normal.y > 0.7f)
+                {
+                    float pr = size * 0.5f * probeRadius;
+                    for (int q = 0; q < 4; q++)
+                    {
+                        Vector3 off = q == 0 ? new Vector3(pr, 0f, 0f) : q == 1 ? new Vector3(-pr, 0f, 0f) : q == 2 ? new Vector3(0f, 0f, pr) : new Vector3(0f, 0f, -pr);
+                        RaycastHit h2;
+                        if (Physics.Raycast(hit.point + off + Vector3.up * (stepUp + 0.05f), Vector3.down, out h2, stepUp + 0.3f, groundMask, QueryTriggerInteraction.Ignore)
+                            && h2.normal.y > 0.7f && h2.point.y > gp.y && h2.point.y - hit.point.y <= stepUp)
+                            gp.y = h2.point.y;
+                    }
+                }
+                t.position = gp + hit.normal * ((decalAboveGround - decalBelow) * 0.5f);
                 t.rotation = Quaternion.FromToRotation(Vector3.up, hit.normal);
                 t.localScale = new Vector3(size, decalAboveGround + decalBelow, size);
             }
