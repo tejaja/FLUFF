@@ -1611,6 +1611,8 @@ public static class FuwaPlaygroundBuilder
         fx.SetPositionAndRotation(p.position, p.rotation); fx.localScale = Vector3.one;
         var lp = fr.localPosition; var lr = fr.localRotation;
         fr.SetParent(fx, false); fr.localPosition = lp; fr.localRotation = lr;
+        // 足もとの光の模様は、台座を盛り上がった形にしたら突き抜けるので、あそびばのはなし（2026-11-27 てじゃ「遊び場のはなくてもいいかも」）
+        { var gg = fr.Find("GroundGlow"); if (gg) Object.DestroyImmediate(gg.gameObject); }
         { var pc = fx.GetComponent<UnityEngine.Animations.ParentConstraint>(); if (pc) Object.DestroyImmediate(pc); }
         EnsureProgram("FuwaFollowPose");
         var fp = fx.GetComponent<FuwaFollowPose>(); if (!fp) fp = UdonSharpUndo.AddComponent<FuwaFollowPose>(fx.gameObject);
