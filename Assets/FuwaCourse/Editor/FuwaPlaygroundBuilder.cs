@@ -1499,7 +1499,11 @@ public static class FuwaPlaygroundBuilder
         var pw = UdonSharpUndo.AddComponent<FuwaPlaygroundWindmill>(wGo);
         pw.rotor = rotor.transform; pw.gears = new[] { gS, gB };
         pw.gearRatio = new[] { -GearToyRatio, GearToyRatio * 12f / 20f };   // 歯車は Euler(0,-a)、羽根車は Euler(0,+turn) なので、小さい歯車はマイナスで羽根車と同じ向き
-        pw.gearPhase = new[] { 0f, 0f };
+        // 2026-11-28 てじゃ「おもちゃのギアが噛み合ってない」：両方 0 だと大きい歯車の歯が小さい歯車の歯に向いていた。
+        //  小さい歯車（z12）の歯が大きい歯車の方を向く時、大きい歯車（z20）は谷（半歯 9°）を向ける。歯の向きは両方ローカル +X が歯（メッシュ）
+        { var dl = gB.transform.parent.InverseTransformPoint(gB.transform.position) - gS.transform.parent.InverseTransformPoint(gS.transform.position);
+          float phi = Mathf.Atan2(dl.z, dl.x) * Mathf.Rad2Deg;
+          pw.gearPhase = new[] { -Mathf.Repeat(-phi, 30f), -Mathf.Repeat(9f - phi - 180f, 18f) }; }
         pw.hitRadius = tt.hitRadius; pw.hitHalfHeight = tt.hitHalfHeight; pw.hitCone = tt.hitCone; pw.spinPerShot = 140f; pw.maxSpin = 260f; pw.drag = 0.4f;
         var click = wm.transform.Find("SfxClick");   // 撃った時のカチッ（コース2–4 の風車の音）
         if (click != null) { var a = Object.Instantiate(click.gameObject, wGo.transform, false); a.name = "SfxClick"; a.transform.localPosition = Vector3.zero; pw.clickSound = a.GetComponent<AudioSource>(); if (pw.clickSound != null) pw.clickSound.playOnAwake = false; }
