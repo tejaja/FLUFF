@@ -2285,7 +2285,7 @@ public static class FuwaPlaygroundBuilder
             box.size = new Vector3(capW, hh, capW); box.center = new Vector3(0f, hh * 0.5f, 0f);
             var rb = handle.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
             var pk = handle.AddComponent<VRC.SDK3.Components.VRCPickup>();
-            pk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; pk.InteractionText = "はねるキノコ"; pk.proximity = 2f;
+            pk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; pk.InteractionText = "はねるキノコ"; pk.UseText = ""; pk.proximity = 2f;   // 2026-11-27 使い道がないので「使う」を出さない（はねぐるまと同じ）
             handle.AddComponent<VRC.SDK3.Components.VRCObjectSync>();
             var mm = UdonSharpUndo.AddComponent<FuwaMovableMushroom>(handle); mm.body = body; mm.ground = 1 << 11;
             UdonSharpEditorUtility.CopyProxyToUdon(mm);
