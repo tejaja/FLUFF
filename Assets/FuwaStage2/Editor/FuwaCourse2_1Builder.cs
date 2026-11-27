@@ -3872,7 +3872,7 @@ public static class FuwaCourse2_1Builder
         var gateF = LipFalls(gate, "GateFalls", "GateFalls", lipF, outF, new List<Vector2> { new Vector2(0.3f, 0.012f), new Vector2(0.02f, 0.012f), new Vector2(-0.25f, -0.15f), new Vector2(-0.5f, -0.6f), new Vector2(-0.68f, -1.5f), new Vector2(-0.75f, float.NaN) }, surf);
         // 落ち口の手前の平らな所は真ん中の水の見えている色で、上のはしの白い帯なし（2026-10-28 てじゃ「境目も全部消していきたい」）。
         // 落ち口の下は水面でなく岩の橋なので、上のはしを透明にする（_TopFade）と白っぽい帯が広がった → 色だけ
-        { BlendLipIntoWater(gateF, GateWaterLook, 0.3f); var gm = gateF.GetComponent<MeshRenderer>().sharedMaterial; gm.SetFloat("_TopFade", 0f); gm.SetFloat("_EdgeRim", 0f); EditorUtility.SetDirty(gm); }   // 2026-11-27 横にふた（GateFallsSide）をつけたので、はしの白いふちはなし（境目が目立った）
+        { BlendLipIntoWater(gateF, GateWaterLook, 0.3f); var gm = gateF.GetComponent<MeshRenderer>().sharedMaterial; gm.SetFloat("_TopFade", 0f); gm.SetFloat("_EdgeRim", 0f); gm.SetColor("_Top", new Color(0.356f, 0.732f, 0.9f, 1f)); EditorUtility.SetDirty(gm); }   // 2026-11-27 _Top：上の水（GateWaterSlab の _Deep）と色が違いすぎた → 6割寄せる   // 2026-11-27 横にふた（GateFallsSide）をつけたので、はしの白いふちはなし（境目が目立った）
         // 滝の裏の面（上流の踊り場から見える側）：岩の橋の中から川まで
         LipFalls(gate, "GateFallsBack", "GateFallsBack", lipF, outF, new List<Vector2> { new Vector2(0.05f, -1.3f), new Vector2(0.03f, -2f), new Vector2(0.02f, float.NaN) }, surf, true);
         // 滝つぼ：落ちた所（川の水面）の泡。三連滝の Splash と同じ（2026-10-28 てじゃ「滝壺にエフェクト追加しよ」）。前は川の流れていく向き、横のはしはなだらかに消す
