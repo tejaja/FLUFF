@@ -23,6 +23,8 @@ public class FuwaPlaygroundIceToy : UdonSharpBehaviour
     public Collider crystalCollider;
     [Tooltip("氷が出きった時の結晶の大きさ（倍）")]
     public float onScale = 0.45f;
+    [Tooltip("持つ判定（Grab）の大きい当たり・小さい当たり（onScale 倍）。縮んでいる間は小さい方に切りかえる（ハイライトも小さく）")]
+    public Collider grabFull, grabSmall;
 
     [UdonSynced] private bool _on;
     private float _k;
@@ -98,5 +100,7 @@ public class FuwaPlaygroundIceToy : UdonSharpBehaviour
         if (discCollider != null) discCollider.enabled = e > 0.2f;
         if (crystal != null) crystal.localScale = Vector3.one * Mathf.Lerp(1f, onScale, e);
         if (crystalCollider != null) crystalCollider.enabled = e < 0.05f;
+        // 2026-11-27 てじゃ「縮んだあとにインタラクト時のハイライトも縮んで欲しい」
+        if (grabFull != null && grabSmall != null) { bool small = e >= 0.5f; if (grabSmall.enabled != small) grabSmall.enabled = small; if (grabFull.enabled == small) grabFull.enabled = !small; }
     }
 }

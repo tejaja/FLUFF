@@ -1119,7 +1119,9 @@ public static class FuwaCourse2_1Builder
     public static float ClamPeriod = 2.8f;
     // シャコガイのモデル（Tools/stage2_clam.py の HINGE_Y/HINGE_Z とそろえる）と色：外はクリーム色、中の身は青緑（てじゃ「遠目だとシャコガイのほうがめだつ」）
     const string ClamModel = "Assets/FuwaStage2/Models/Stage2_Clam.fbx";
-    static readonly Vector3 ClamHinge = new Vector3(0f, 0.22f, -0.42f);
+    // 2026-11-27 てじゃ「貝が開いた時に後ろ部分のパーツが貫通してる」：付け根（0, 0.22, −0.42）より後ろ・上にふたの殻があって、開くと後ろが下の殻に沈んでいた
+    //  → 付け根をふたの殻のいちばん後ろ・いちばん上（z −0.452、後ろのふちの上 0.342）の外へ。開くとふたの全部が上・前へ動く（めりこむ辺 0 を確認、10〜40°）
+    public static readonly Vector3 ClamHinge = new Vector3(0f, 0.34f, -0.46f);
     public static Color ClamShellColor = new Color(0.95f, 0.91f, 0.82f), ClamInnerColor = new Color(0.16f, 0.70f, 0.78f), ClamPearlColor = new Color(0.98f, 0.96f, 1f);
     // 泡の大きさ（直径）と包む距離。0.62 だと上から軽く越えられそう（2026-10-21 てじゃ「あわはもっとデカくしよ」）→ 1.5 → 1.8（2026-10-22 てじゃ「ちょっとサイズアップ」）
     public static float ClamBubbleSize = 1.8f, ClamCapture = 1.05f;

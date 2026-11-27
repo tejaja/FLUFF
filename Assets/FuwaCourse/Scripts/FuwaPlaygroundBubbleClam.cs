@@ -53,7 +53,7 @@ public class FuwaPlaygroundBubbleClam : UdonSharpBehaviour
     {
         if (!clickToggle) DisableInteractive = true;
         int n = bubbles != null ? bubbles.Length : 0;
-        _slotIdx = new int[n]; _popped = new bool[n]; _held = new int[n]; _heldAt = new double[n];
+        _slotIdx = new int[n]; _popped = new bool[n]; _held = new int[n]; _heldAt = new double[n]; _org = new Vector3[n]; _dir = new Vector3[n];
         for (int i = 0; i < n; i++) { _slotIdx[i] = -999; _held[i] = -1; if (bubbles[i] != null) bubbles[i].gameObject.SetActive(false); }
         int nb = spawner != null && spawner.balls != null ? spawner.balls.Length : 0;
         _freeUntil = new float[nb];
@@ -79,13 +79,16 @@ public class FuwaPlaygroundBubbleClam : UdonSharpBehaviour
         if (snd != null) snd.Play();
     }
 
-    // 泡 idx の、吹いてからの時間 age での位置（mouth 基準）
-    private Vector3 BubblePos(int idx, double age)
+    // 泡 idx の、吹いてからの時間 age での位置（吹いた時の mouth 基準）
+    // 2026-11-27 てじゃ「貝の泡が、貝を運ぶといっしょに動いちゃう」：毎フレームの mouth から出していたので、貝を運ぶと飛んでいる泡もついてきた
+    //  → 泡ごとに吹いた時の出どころと向きを覚えて（_org/_dir）、そこから進める
+    private Vector3[] _org, _dir;
+    private Vector3 BubblePos(int s, int idx, double age)
     {
         float a = (float)age;
         float d = a * bubbleSpeed;
         float ph = Mathf.Repeat(idx * 1.37f, 6.28f);
-        return mouth.position + mouth.forward * d + Vector3.up * (a * bubbleRise + Mathf.Sin(a * bobSpeed + ph) * bobAmp * Mathf.Clamp01(a * 1.5f));
+        return _org[s] + _dir[s] * d + Vector3.up * (a * bubbleRise + Mathf.Sin(a * bobSpeed + ph) * bobAmp * Mathf.Clamp01(a * 1.5f));
     }
 
     private void Update()
@@ -111,14 +114,14 @@ public class FuwaPlaygroundBubbleClam : UdonSharpBehaviour
             // この場所（s）に今いるはずの泡：k 以下で s と同じ余りの一番新しい番号
             int idx = k - (((k - s) % n) + n) % n;
             Transform b = bubbles[s]; if (b == null) continue;
-            if (_slotIdx[s] != idx) { if (_held[s] >= 0) Release(s); _slotIdx[s] = idx; _popped[s] = false; }
+            if (_slotIdx[s] != idx) { if (_held[s] >= 0) Release(s); _slotIdx[s] = idx; _popped[s] = false; _org[s] = mouth.position; _dir[s] = mouth.forward; }
             double age = t - idx * period;
             bool alive = _on && idx >= first && age >= 0 && age < life && !_popped[s];
             if (alive && _held[s] >= 0 && t - _heldAt[s] > holdTime) { Pop(s); alive = false; }
             if (!alive) { if (b.gameObject.activeSelf) b.gameObject.SetActive(false); if (_held[s] >= 0) Release(s); continue; }
             if (age > life - 0.05) { Pop(s); continue; }
             if (!b.gameObject.activeSelf) b.gameObject.SetActive(true);
-            b.position = BubblePos(idx, age);
+            b.position = BubblePos(s, idx, age);
             float grow = Mathf.Clamp01((float)age * 3f);
             b.localScale = Vector3.one * bubbleSize * (0.4f + 0.6f * grow);
         }
@@ -135,7 +138,7 @@ public class FuwaPlaygroundBubbleClam : UdonSharpBehaviour
             Vector3 bp = b.position;
             // 泡の動き（つぎの位置との差）
             double age = t - _slotIdx[s] * period;
-            Vector3 bv = (BubblePos(_slotIdx[s], age + 0.05) - BubblePos(_slotIdx[s], age)) / 0.05f;
+            Vector3 bv = (BubblePos(s, _slotIdx[s], age + 0.05) - BubblePos(s, _slotIdx[s], age)) / 0.05f;
             if (_held[s] < 0)
             {
                 for (int i = 0; i < spawner.balls.Length; i++)

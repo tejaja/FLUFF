@@ -1099,6 +1099,8 @@ public static class FuwaPlaygroundBuilder
         var c0 = src.clams[0];
         EnsureProgram("FuwaPlaygroundBubbleClam");
         var clam = Object.Instantiate(c0.gameObject, slot, false); clam.name = "BubbleClam";
+        // 付け根は 2–1 の貝と同じ（2026-11-27 めりこみ対策で後ろ・上へ）。写した貝が古い付け根のままならそろえる
+        { var lh = clam.transform.Find("LidHinge"); if (lh != null) { var d = lh.localPosition - FuwaCourse2_1Builder.ClamHinge; lh.localPosition = FuwaCourse2_1Builder.ClamHinge; foreach (Transform ch in lh) ch.localPosition += d; } }
         foreach (var t in clam.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
         foreach (var ub in clam.GetComponentsInChildren<UdonSharpBehaviour>(true)) Object.DestroyImmediate(ub);
         const float sc = 1.5f;
@@ -1117,7 +1119,8 @@ public static class FuwaPlaygroundBuilder
         // 2026-11-16 てじゃ「泡はコースのみたいなの、出してほしい」→ コース2–1 の泡（Bubble3D の球）を3つ。吹いて、包んで運んで、割れる
         var srcB = src.bubbles[0];
         var bl = new List<Transform>();
-        for (int i = 0; i < 3; i++)
+        // 2026-11-27 てじゃ「泡の寿命もっと伸ばしたい」：進む距離 6→10m（約9秒）。吹く間隔 2.6秒なので同時に4つ飛ぶ → 泡を4つに
+        for (int i = 0; i < PlaygroundBubbleCount; i++)
         {
             var b = Object.Instantiate(srcB.gameObject, slot, false); b.name = "Bubble" + i;
             foreach (var cc in b.GetComponentsInChildren<Collider>(true)) Object.DestroyImmediate(cc);
@@ -1127,7 +1130,7 @@ public static class FuwaPlaygroundBuilder
             b.SetActive(false);
             bl.Add(b.transform);
         }
-        bc.bubbles = bl.ToArray(); bc.bubbleSize = 0.95f;
+        bc.bubbles = bl.ToArray(); bc.bubbleSize = 0.95f; bc.bubbleRange = PlaygroundBubbleRange;
         // 音・粒：コース2–1 の貝のをコピー（あそびばの中の位置で鳴らす）
         AudioSource CopyAs(AudioSource a, string nm) { if (a == null) return null; var g = Object.Instantiate(a.gameObject, clam.transform, false); g.name = nm; g.transform.localPosition = Vector3.zero; foreach (Transform ch in g.transform.Cast<Transform>().ToList()) Object.DestroyImmediate(ch.gameObject); foreach (var ub in g.GetComponents<UdonSharpBehaviour>()) Object.DestroyImmediate(ub); var au = g.GetComponent<AudioSource>(); au.playOnAwake = false; return au; }
         bc.toggleSound = CopyAs(src.blowSound, "ToggleSound"); bc.blowSound = CopyAs(src.blowSound, "BlowSound");
@@ -1221,6 +1224,7 @@ public static class FuwaPlaygroundBuilder
     }
 
     // 2–3 氷のたね：氷の結晶3本（クリックでオン／オフ同期）＋まわり半径3mにひろがる氷の円（人が滑る FuwaIceSkate・つるつるの物理材質）
+    public static int PlaygroundBubbleCount = 4; public static float PlaygroundBubbleRange = 10f;   // 貝の泡（2026-11-27 寿命をのばした）
     public static float IceToyR = 4.5f, IceDiscSkirt = 0.15f;   // 2026-11-27 てじゃ「展開範囲広げて」3→4.5m
     public static bool PortalPair = true;
     static void FillIceToy(Transform slot)
@@ -1353,10 +1357,35 @@ public static class FuwaPlaygroundBuilder
         var dm = SaveGenMesh(IceDiscMesh(), "Playground_IceDisc");
         var mc = seed.discCollider as MeshCollider; if (mc != null) { mc.sharedMesh = null; mc.sharedMesh = dm; EditorUtility.SetDirty(mc); }
         seed.discRadius = IceToyR; seed.crystal = seed.transform; seed.crystalCollider = seed.GetComponent<BoxCollider>();
+        IceGrabColliders(seed);
         UdonSharpEditorUtility.CopyProxyToUdon(seed); EditorUtility.SetDirty(seed);
         AssetDatabase.SaveAssets();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(pg.gameObject.scene);
         Debug.Log("こおりのたね：直した（氷の半径 " + IceToyR + "m）");
+    }
+
+    // 持つ判定（Grab）：結晶の形の凸包（大）と、縮んだ時の形（onScale 倍、小）。氷が出ている間は小さい方（FuwaPlaygroundIceToy.grabSmall）でハイライトも小さく（2026-11-27）
+    public static void IceGrabColliders(FuwaPlaygroundIceToy seed)
+    {
+        var mm = Object.FindObjectsOfType<FuwaMovableMushroom>(true).FirstOrDefault(m => m.useTarget == UdonSharpEditorUtility.GetBackingUdonBehaviour(seed) || (m.body != null && seed.transform.IsChildOf(m.body)));
+        if (mm == null) { Debug.LogWarning("[こおりのたね] 持ち手（Grab）がない"); return; }
+        var grab = mm.gameObject;
+        var seedMesh = seed.GetComponent<MeshFilter>().sharedMesh;
+        Mesh Scaled(float k, string name)
+        {
+            var m = new Mesh(); var v = seedMesh.vertices;
+            var toGrab = grab.transform.worldToLocalMatrix * seed.transform.parent.localToWorldMatrix * Matrix4x4.TRS(seed.transform.localPosition, seed.transform.localRotation, Vector3.one);
+            for (int i = 0; i < v.Length; i++) v[i] = toGrab.MultiplyPoint3x4(v[i] * k);
+            m.vertices = v; m.triangles = seedMesh.triangles; m.RecalculateBounds(); m.RecalculateNormals();
+            return SaveGenMesh(m, name);
+        }
+        var full = Scaled(1f, "Playground_IceSeedGrab"); var small = Scaled(seed.onScale, "Playground_IceSeedGrabSmall");
+        var cols = grab.GetComponents<MeshCollider>().ToList();
+        while (cols.Count < 2) { var c = grab.AddComponent<MeshCollider>(); c.convex = true; c.isTrigger = cols.Count > 0 ? cols[0].isTrigger : true; cols.Add(c); }
+        cols[0].sharedMesh = null; cols[0].sharedMesh = full; cols[0].convex = true; cols[0].enabled = true;
+        cols[1].sharedMesh = null; cols[1].sharedMesh = small; cols[1].convex = true; cols[1].isTrigger = cols[0].isTrigger; cols[1].enabled = false;
+        seed.grabFull = cols[0]; seed.grabSmall = cols[1];
+        foreach (var c in cols) EditorUtility.SetDirty(c);
     }
 
     static void FillIceToyRest(Transform slot, GameObject toy, Material iceM, FuwaIceSkate iceSrc)
