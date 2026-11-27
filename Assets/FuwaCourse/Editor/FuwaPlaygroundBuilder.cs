@@ -2060,6 +2060,31 @@ public static class FuwaPlaygroundBuilder
         Debug.Log("[たね] オンオフ式にした");
     }
 
+    // 2026-11-27 てじゃ「ポータルもオンオフ式に、デフォはオフ、持ってUSEでオン、片方切り替えたら両方反応」
+    [MenuItem("FuwaCourse/済み（押す前に相談）/あそびば/ポータルをオンオフ式に")]
+    public static void SetupPortalToggle()
+    {
+        var pp = Object.FindObjectsOfType<FuwaPlaygroundPortals>(true).First();
+        var vis = new List<Transform>();
+        foreach (var p in new[] { pp.a, pp.b }) foreach (Transform c in p) vis.Add(c);   // Swirl・Back
+        pp.visuals = vis.ToArray();
+        var cams = pp.transform.Find("PortalCams"); pp.cams = cams != null ? cams.gameObject : null;
+        var fan = Object.FindObjectsOfType<FuwaPlaygroundIceToy>(true).FirstOrDefault();
+        foreach (var n in new[] { "PortalOnSfx", "PortalOffSfx" }) { var o = pp.transform.Find(n); if (o != null) Object.DestroyImmediate(o.gameObject); }
+        AudioSource Copy(AudioSource a, string n) { if (a == null) return null; var g = Object.Instantiate(a.gameObject, pp.transform, false); g.name = n; g.transform.localPosition = Vector3.zero; foreach (Transform ch in g.transform.Cast<Transform>().ToList()) Object.DestroyImmediate(ch.gameObject); foreach (var u in g.GetComponents<UdonSharpBehaviour>()) Object.DestroyImmediate(u); var au = g.GetComponent<AudioSource>(); au.playOnAwake = false; return au; }
+        if (fan != null) { pp.onSound = Copy(fan.toggleSound, "PortalOnSfx"); pp.offSound = Copy(fan.offSound, "PortalOffSfx"); }
+        UdonSharpEditorUtility.CopyProxyToUdon(pp);
+        { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(pp); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Manual; EditorUtility.SetDirty(ub); } }
+        EditorUtility.SetDirty(pp);
+        foreach (var h in Object.FindObjectsOfType<FuwaPlaygroundPortalHandle>(true))
+        {
+            h.portals = pp; UdonSharpEditorUtility.CopyProxyToUdon(h); EditorUtility.SetDirty(h);
+            var pk = h.GetComponent<VRC.SDK3.Components.VRCPickup>(); if (pk != null) { pk.UseText = "オン / オフ"; EditorUtility.SetDirty(pk); }
+        }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(pp.gameObject.scene);
+        Debug.Log("[ポータル] オンオフ式にした");
+    }
+
     [MenuItem("FuwaCourse/済み（押す前に相談）/あそびば/重力のたねのエフェクトをまっすぐに")]
     static void MenuKeepGravityUpright()
     {

@@ -6,10 +6,52 @@ using VRC.SDKBase;
 // a・b は立っている輪（+forward が表＝入る側、穴は local の |x|,|y-radius| が radius の円の中）。表から裏へくぐると、もう片方の表から出てくる
 //  変換：p' = 出口 · R180y · 入口⁻¹ · p（向き・速さもそのまま運ぶ）
 // 人：頭が面をこえた瞬間に体ごと移す（自分の画面）。同期ふわふわ：全員の画面で同じように移す（持ち主は送り直す）
-[UdonBehaviourSyncMode(BehaviourSyncMode.None)]
+// 2026-11-27 てじゃ「ポータルもオンオフ式に、デフォはオフ、持ってUSEでオン、片方切り替えたら両方反応」：
+//  _on（同期）でオン/オフ。オフの間はくぐってもワープしない。穴の見た目（visuals）は大きさ 0→1 でふわっと開く・閉じる。向こうを映すカメラ（cams）もオフの間は止める
+[UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
 public class FuwaPlaygroundPortals : UdonSharpBehaviour
 {
     public Transform a, b;
+    [Tooltip("開く・閉じる見た目（穴の渦・裏）。大きさ 0→元 で開く")]
+    public Transform[] visuals;
+    [Tooltip("向こうを映すカメラ一式（オフの間は止める）")]
+    public GameObject cams;
+    public float openSpeed = 1.6f;
+    public AudioSource onSound, offSound;
+    [UdonSynced] private bool _on;
+    private float _k = -1f;
+    private Vector3[] _visBase;
+
+    public void Toggle()
+    {
+        if (!Networking.IsOwner(gameObject)) Networking.SetOwner(Networking.LocalPlayer, gameObject);
+        _on = !_on;
+        RequestSerialization();
+        AudioSource s = _on ? onSound : (offSound != null ? offSound : onSound);
+        if (s != null) s.Play();
+    }
+
+    private void UpdateOpen()
+    {
+        if (_visBase == null)
+        {
+            int n = visuals != null ? visuals.Length : 0;
+            _visBase = new Vector3[n];
+            for (int i = 0; i < n; i++) if (visuals[i] != null) _visBase[i] = visuals[i].localScale;
+        }
+        float target = _on ? 1f : 0f;
+        if (_k == target) return;
+        _k = _k < 0f ? target : Mathf.MoveTowards(_k, target, openSpeed * Time.deltaTime);
+        float e = _k * _k * (3f - 2f * _k);
+        for (int i = 0; i < _visBase.Length; i++)
+        {
+            Transform t = visuals[i]; if (t == null) continue;
+            bool vis = e > 0.001f;
+            if (t.gameObject.activeSelf != vis) t.gameObject.SetActive(vis);
+            t.localScale = _visBase[i] * Mathf.Max(0.001f, e);
+        }
+        if (cams != null && cams.activeSelf != (e > 0.001f)) cams.SetActive(e > 0.001f);
+    }
     [Tooltip("穴（だ円）：中心の高さ・半はば・半高さ（コースのポータルと同じ形。2026-11-16 てじゃ「コースと見た目揃えて」）")]
     public float holeCenterY = 1.85f, halfW = 0.85f, halfH = 1.55f;
     public FuwaPlaygroundSpawner spawner;
@@ -49,7 +91,9 @@ public class FuwaPlaygroundPortals : UdonSharpBehaviour
 
     private void Update()
     {
+        UpdateOpen();
         if (a == null || b == null) return;
+        if (_k < 0.9f) { _prevHeadA = 1f; _prevHeadB = 1f; return; }   // オフ・開いている途中はワープしない
         VRCPlayerApi p = Networking.LocalPlayer;
         if (p == null) return;
         Vector3 head = p.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position;
@@ -78,6 +122,7 @@ public class FuwaPlaygroundPortals : UdonSharpBehaviour
     {
         if (a == null || b == null || spawner == null || spawner.balls == null || _prevBallA == null) return;
         int n = Mathf.Min(spawner.balls.Length, _prevBallA.Length);
+        if (_k < 0.9f) { for (int i = 0; i < n; i++) { _prevBallA[i] = 1f; _prevBallB[i] = 1f; } return; }
         for (int i = 0; i < n; i++)
         {
             FuwaSharedBall ball = spawner.balls[i];

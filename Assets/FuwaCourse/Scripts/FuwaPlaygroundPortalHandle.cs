@@ -9,6 +9,9 @@ using VRC.SDKBase;
 public class FuwaPlaygroundPortalHandle : UdonSharpBehaviour
 {
     public LayerMask groundMask = 1 | (1 << 11);
+    [Tooltip("持ってトリガーでオン/オフ（両方のポータルがいっしょに。2026-11-27）")]
+    public FuwaPlaygroundPortals portals;
+    public override void OnPickupUseDown() { if (portals != null) portals.Toggle(); }
     [Tooltip("床から持ち手の原点までの高さ")]
     public float groundOffset = 0f;
 
