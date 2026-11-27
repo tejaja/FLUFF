@@ -85,6 +85,8 @@ Shader "Fuwa/ShockFloor"
                 float flow = frac(r * 0.9 - UNITY_ACCESS_INSTANCED_PROP(Props, _FlowPh));
                 float bands = smoothstep(0.0, 0.12, flow) * pow(saturate(1 - flow), 3);
                 float charge = kk * (0.38 + 0.9 * bands) * (0.85 + 0.15 * sin(UNITY_ACCESS_INSTANCED_PROP(Props, _FlickPh))) * _ChargeGain;   // 2026-11-16 てじゃ「地面のチャージ時の黒いグラデ、もっとつよく」
+                // 2026-11-27 てじゃ「衝撃波発生時に黒いオーラがパッと消えるのが違和感、衝撃波にそって消す」：壁が通った内側から消える（外はまだ残る）
+                if (wr >= 0) charge *= smoothstep(wr - 0.5, wr + 0.3, r);
                 // セーフのふちの線（ためている間と壁が来る前）
                 float sline = (k > 0.001 || wr >= 0) ? (1 - smoothstep(0.03, 0.11, abs(dEdge))) * (0.35 + 0.65 * max(kk, wf)) : 0;
                 // ドン：壁の帯＋通ったあとの尾

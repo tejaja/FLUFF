@@ -495,7 +495,8 @@ public class FuwaShockwave : UdonSharpBehaviour
         floorZone.GetPropertyBlock(_mpb);
         _mpb.SetFloat("_FlowPh", _flowPh);
         _mpb.SetFloat("_FlickPh", _flickPh);
-        _mpb.SetFloat("_Charge", k);
+        // 2026-11-27 黒いオーラはドンでパッと消さず、壁が広がるのに合わせて内側から消す（シェーダーが _WaveR より内側を消す）→ 壁が出ている間はためきった濃さのまま
+        _mpb.SetFloat("_Charge", _waveLive ? Mathf.Max(k, 1f) : k);
         _mpb.SetFloat("_WaveR", wr);
         _mpb.SetFloat("_WaveFade", wf);
         _mpb.SetVector("_Src", new Vector4(s.x, s.y, s.z, 0f));

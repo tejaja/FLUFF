@@ -789,7 +789,7 @@ public class FuwaBall : UdonSharpBehaviour
     [Tooltip("はがれてから、また巣にくっつくまでの秒数（2026-11-11 てじゃ「真横に当てると捕まって詰む」：穴のある巣は中にいる間ずっと判定するので、はがれた瞬間にまたくっついていた）")]
     public float webFreeTime = 0.7f;
     [Tooltip("巣にくっついたままこの秒数たつと、フルチャで擃った時と同じようにはがれる（2026-11-17 てじゃ「詰み防止」。0 でなし）")]
-    public float webAutoFree = 10f;
+    public float webAutoFree = 5f;   // 2026-11-27 てじゃ「クモの巣の自動ハズレ時間を5秒に」（前 10）
     private float _webFreeUntil = -10f;
     private float _webLoose;
     private float _shotCharge = -1f;
