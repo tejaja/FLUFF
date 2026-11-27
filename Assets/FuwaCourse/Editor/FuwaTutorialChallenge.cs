@@ -334,8 +334,8 @@ public static class FuwaTutorialChallenge
                 var p2 = Fire(fr2, B2, S(-1.2f, 0f, pitch, 0f, 1f), Vector3.zero);
                 twoAll++; if (Through(p2, rc, rn, RingIn)) twoOk++;
             }
-        return Build(bay, nb, fr, B, rc, rn, "", "", R + "コツ" + E + "：1発じゃ届かない。落ちてきたら" + R + "もう1発" + E + "\n空気がなくなったら" + R + "溜めると戻る" + E,
-            R + "Tip" + E + ": one shot won't reach. Hit it " + R + "again" + E + " as it comes down\nOut of air? " + R + "Charge" + E + " to refill", Ball())
+        return Build(bay, nb, fr, B, rc, rn, "", "", R + "コツ" + E + "：連打だけでは空気が足りなくなる\n" + R + "チャージ" + E + "を活用しよう",   // 2026-11-27 てじゃ
+            R + "Tip" + E + ": rapid-fire alone runs out of air\nMake good use of your " + R + "charge" + E, Ball())
             + $" | 1発 {(oneOk ? "×届く" : "○届かない")}・2発 {twoOk}/{twoAll}";
     }
     [MenuItem("FuwaCourse/れんしゅう/課題：7 まもの")] public static void M7() => Debug.Log(BuildMonster());
