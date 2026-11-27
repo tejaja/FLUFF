@@ -32,6 +32,8 @@ public class FuwaPlaygroundBubbleClam : UdonSharpBehaviour
     public float captureRadius = 0.55f;
     [Tooltip("ふつうの玉の大きさ。これより大きい玉は、包む距離・泡の大きさを同じ倍率で大きく")]
     public float refBallSize = 0.3f;
+    [Tooltip("泡を置いておく、動かない親（空なら貝の親の親）")]
+    public Transform bubbleRoot;
     [Tooltip("泡の位置へ寄せる強さ（1/s²）と動きをそろえる強さ（1/s）")]
     public float holdPull = 30f, holdDamp = 6f;
     [Tooltip("割れたあと、また包まれるまで（秒）")]
@@ -57,6 +59,11 @@ public class FuwaPlaygroundBubbleClam : UdonSharpBehaviour
         int n = bubbles != null ? bubbles.Length : 0;
         _slotIdx = new int[n]; _popped = new bool[n]; _held = new int[n]; _heldAt = new double[n]; _org = new Vector3[n]; _dir = new Vector3[n];
         for (int i = 0; i < n; i++) { _slotIdx[i] = -999; _held[i] = -1; if (bubbles[i] != null) bubbles[i].gameObject.SetActive(false); }
+        // 2026-11-28 てじゃ「貝を動かすと泡がプルプル、貝の子だとダメ」：泡は動かせる貝（Body）の子なので、持って動かすと親といっしょに動いてから位置を置き直して震えていた
+        //  → 動かない所（bubbleRoot、なければ Body のさらに親）へ移す。泡の位置はワールドで毎フレーム決めているので見た目は同じ
+        Transform holder = bubbleRoot;
+        if (holder == null && transform.parent != null) holder = transform.parent.parent;
+        if (holder != null) for (int i = 0; i < n; i++) if (bubbles[i] != null) bubbles[i].SetParent(holder, true);
         int nb = spawner != null && spawner.balls != null ? spawner.balls.Length : 0;
         _freeUntil = new float[nb];
     }

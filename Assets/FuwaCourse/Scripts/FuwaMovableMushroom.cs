@@ -11,6 +11,8 @@ using VRC.SDK3.Components;
 public class FuwaMovableMushroom : UdonSharpBehaviour
 {
     public Transform body;
+    [Tooltip("持つところ（このオブジェクト）が body の足もとからどれだけ上にあるか(m)。VRChat の持つ線は持つところの位置へ伸びるので、傘の真ん中あたりに上げておく（2026-11-28 てじゃ「はねるキノコのビームの位置が変」：足もと＝傘の下に向いていた）")]
+    public float pivotUp = 0f;
     [Tooltip("手を離した時に立てる地面のレイヤー")]
     public LayerMask ground = 1 << 11;
     [Tooltip("下にこれ以上地面がなければ、離したその場に浮かべる")]
@@ -138,9 +140,9 @@ public class FuwaMovableMushroom : UdonSharpBehaviour
     {
         SetGhost(false);
         Vector3 p = transform.position;
-        RaycastHit[] hits = Physics.RaycastAll(p + Vector3.up * 0.3f, Vector3.down, maxDrop + 0.3f, ground, QueryTriggerInteraction.Ignore);
+        RaycastHit[] hits = Physics.RaycastAll(p + Vector3.up * 0.3f, Vector3.down, maxDrop + 0.3f + pivotUp, ground, QueryTriggerInteraction.Ignore);
         float best = float.MaxValue;
-        Vector3 at = p;
+        Vector3 at = p - Vector3.up * pivotUp;
         for (int i = 0; i < hits.Length; i++)
         {
             // 自分の傘には立たない
@@ -149,7 +151,7 @@ public class FuwaMovableMushroom : UdonSharpBehaviour
         }
         Vector3 f = transform.forward; f.y = 0f;
         Quaternion rot = f.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(f.normalized) : Quaternion.identity;
-        transform.SetPositionAndRotation(at, rot);
+        transform.SetPositionAndRotation(at + Vector3.up * pivotUp, rot);
         Follow();
     }
 
@@ -164,6 +166,6 @@ public class FuwaMovableMushroom : UdonSharpBehaviour
         // 動いていない時は当たり判定を動かさない（止まっている当たり判定を毎フレーム動かすと重い）
         if ((p - _lastPos).sqrMagnitude < 0.000001f && Mathf.Abs(Mathf.DeltaAngle(yaw, _lastYaw)) < 0.05f) return;
         _lastPos = p; _lastYaw = yaw;
-        body.SetPositionAndRotation(p, Quaternion.Euler(0f, yaw, 0f));
+        body.SetPositionAndRotation(p - Vector3.up * pivotUp, Quaternion.Euler(0f, yaw, 0f));
     }
 }
