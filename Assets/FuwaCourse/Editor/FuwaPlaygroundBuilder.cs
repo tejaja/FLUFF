@@ -812,7 +812,7 @@ public static class FuwaPlaygroundBuilder
     {
         var heldMat = Object.FindObjectsOfType<FuwaThrowRock>(true).First().heldMaterial;
         EnsureProgram("FuwaMovableMushroom");
-        foreach (var (slotName, label) in new[] { ("Unlock6", "かい"), ("Unlock7", "ようがん"), ("Unlock8", "こおり"), ("Unlock9", "はねぐるま") })
+        foreach (var (slotName, label) in new[] { ("Unlock6", "かい"), ("Unlock7", "ようがん"), ("Unlock8", "こおり"), ("Unlock9", "はぐるま") })
         {
             var slot = toys.Find(slotName); if (slot == null) continue;
             var oldGrab = slot.Find("Grab"); var body = slot.Find("Body");

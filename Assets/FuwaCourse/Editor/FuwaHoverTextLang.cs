@@ -16,7 +16,7 @@ public static class FuwaHoverTextLang
         { "ふわふわ", "Fluff" }, { "ひょうじょう", "Face" },
         { "ポータル", "Portal" }, { "はねるキノコ", "Bouncy Mushroom" }, { "いわ", "Rock" }, { "リング", "Ring" },
         { "重力のたね", "Gravity Seed" }, { "竜巻のたね", "Tornado Seed" }, { "ようがん", "Lava" }, { "こおり", "Ice" },
-        { "かい", "Clam" }, { "あわ", "Bubbles" }, { "はねぐるま", "Pinwheel" }, { "きんピカふわふわ", "Golden Fluff" },
+        { "かい", "Clam" }, { "あわ", "Bubbles" }, { "はねぐるま", "Pinwheel" }, { "はぐるま", "Gears" }, { "きんピカふわふわ", "Golden Fluff" },
         { "まもののぬいぐるみ（トリガーで起こす・寝かせる）", "Monster Plush (trigger to wake / sleep)" }, { "起こす・寝かせる", "Wake / Sleep" }, { "まもの", "Monster" },
         { "オン / オフ", "ON / OFF" }, { "かいほう", "Unlock" }, { "アンロック", "Unlock" },
         { "竹とんぼ", "Copter" }, { "飛ぶ", "Fly" }, { "竹とんぼをもどす", "Return copter" },
