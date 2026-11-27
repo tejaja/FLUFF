@@ -4,7 +4,8 @@ using UnityEngine;
 // みんなでひろばの「竜巻のたね」（コース1 かぜのおか を誰かがクリアすると出てくる。2026-10-12 てじゃ「竜巻を設置できる何か」）。
 // たねは持って動かせて、手を離すとその場に浮いて止まる（VRCObjectSync）。竜巻（FuwaWhirlwind）はたねの真下の地面に立つ（持ったまま歩くと竜巻もついてくる）。
 // 竜巻はたねの子にしない（たねの Rigidbody の子になるとトリガーの知らせが竜巻のスクリプトに届かなくなる）。それぞれの画面で同じ計算で置く
-[UdonBehaviourSyncMode(BehaviourSyncMode.None)]
+// 2026-11-27 同じ物にオン/オフ（FuwaSeedToggle、Manual）をつけたので、同期の種類をそろえて Manual（同期する変数はない）
+[UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
 public class FuwaTornadoSeed : UdonSharpBehaviour
 {
     public Transform tornado;

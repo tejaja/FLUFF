@@ -115,8 +115,8 @@ public class FuwaPlaygroundLavaPool : UdonSharpBehaviour
         Vector3 at = _org; RaycastHit h;
         if (Physics.Raycast(_org + Vector3.up * 0.5f, Vector3.down, out h, 3f, 1 | (1 << 11), QueryTriggerInteraction.Ignore)) at = h.point + Vector3.up * 0.05f;
         EmitAt(landBurst != null ? landBurst : splash, at, landBurstCount);
-        AudioSource s = landSound != null ? landSound : whoosh;
-        if (s != null) { s.transform.position = at; s.Play(); }
+        // 音はなし（2026-11-27 てじゃ「溶岩の弾けは音いらない」）。landSound を入れた時だけ鳴らす
+        if (landSound != null) { landSound.transform.position = at; landSound.Play(); }
     }
 
     // 粒を位置 at から出す（粒はワールドに残る設定でも、池の子でも、その場から出るように一瞬だけ動かす）

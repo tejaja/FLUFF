@@ -2003,6 +2003,63 @@ public static class FuwaPlaygroundBuilder
         EditorUtility.SetDirty(ku);
     }
 
+    // 2026-11-27 てじゃ「竜巻のたね・重力のたねもオンオフ式。デフォはオフ、持ってインタラクトでオン。オフ時は球の色に近いオーラ、オンで効果が広がってオーラは消える。どちらもフェード」
+    [MenuItem("FuwaCourse/済み（押す前に相談）/あそびば/竜巻・重力のたねをオンオフ式に")]
+    public static void SetupSeedToggles()
+    {
+        EnsureProgram("FuwaSeedToggle");
+        var sh = Shader.Find("Fuwa/SeedAura");
+        var sphere = Resources.GetBuiltinResource<Mesh>("New-Sphere.fbx");
+        foreach (var name in new[] { "TornadoSeed", "GravitySeed" })
+        {
+            var seedT = Object.FindObjectsOfType<Transform>(true).FirstOrDefault(t => t.name == name && t.GetComponent<VRC.SDK3.Components.VRCPickup>() != null);
+            if (seedT == null) { Debug.LogWarning("[たね] " + name + " がない"); continue; }
+            var slot = seedT.parent;
+            var st = seedT.GetComponent<FuwaSeedToggle>(); if (st == null) st = UdonSharpUndo.AddComponent<FuwaSeedToggle>(seedT.gameObject);
+            var seedCol = seedT.GetComponent<Renderer>().sharedMaterial.HasProperty("_Color") ? seedT.GetComponent<Renderer>().sharedMaterial.GetColor("_Color") : Color.white;
+            // オーラ：たねより一回り大きい球（当たりなし、影なし）
+            var old = seedT.Find("Aura"); if (old != null) Object.DestroyImmediate(old.gameObject);
+            var aura = new GameObject("Aura"); aura.layer = seedT.gameObject.layer; aura.transform.SetParent(seedT, false); aura.transform.localScale = Vector3.one * 1.6f;
+            aura.AddComponent<MeshFilter>().sharedMesh = sphere;
+            var ar = aura.AddComponent<MeshRenderer>(); ar.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; ar.receiveShadows = false;
+            string mp = "Assets/FuwaCourse/Materials/Playground_" + name + "Aura.mat";
+            var am = AssetDatabase.LoadAssetAtPath<Material>(mp); if (am == null) { am = new Material(sh); AssetDatabase.CreateAsset(am, mp); }
+            am.shader = sh; am.SetColor("_Color", Color.Lerp(seedCol, Color.white, 0.25f)); EditorUtility.SetDirty(am);
+            ar.sharedMaterial = am;
+            st.aura = ar;
+            // 効果
+            if (name == "TornadoSeed")
+            {
+                var ts = seedT.GetComponent<FuwaTornadoSeed>(); var tw = ts != null ? ts.tornado : slot.Find("Tornado");
+                st.effects = new[] { tw };
+                st.effectColliders = tw.GetComponents<Collider>();
+                st.effectParticles = tw.GetComponentsInChildren<ParticleSystem>(true);
+                if (ts != null) { var tub = UdonSharpEditorUtility.GetBackingUdonBehaviour(ts); if (tub != null) { tub.SyncMethod = VRC.SDKBase.Networking.SyncType.Manual; EditorUtility.SetDirty(tub); } }
+            }
+            else
+            {
+                var zone = slot.Find("HeavyZone"); var parts = slot.Find("HeavyParticles");
+                st.effects = new[] { zone };
+                st.effectColliders = zone.GetComponents<Collider>();
+                st.effectParticles = parts != null ? parts.GetComponentsInChildren<ParticleSystem>(true) : new ParticleSystem[0];
+            }
+            var pk = seedT.GetComponent<VRC.SDK3.Components.VRCPickup>(); pk.UseText = "オン / オフ"; EditorUtility.SetDirty(pk);
+            // 音：扇風機のオン/オフと同じ（2026-11-19 てじゃ「SEは扇風機のを使いまわそ」）
+            var fan = Object.FindObjectsOfType<FuwaPlaygroundIceToy>(true).FirstOrDefault();
+            if (fan != null)
+            {
+                foreach (var n in new[] { "SeedOnSfx", "SeedOffSfx" }) { var o = seedT.Find(n); if (o != null) Object.DestroyImmediate(o.gameObject); }
+                AudioSource Copy(AudioSource a, string n) { if (a == null) return null; var g = Object.Instantiate(a.gameObject, seedT, false); g.name = n; g.transform.localPosition = Vector3.zero; foreach (Transform ch in g.transform.Cast<Transform>().ToList()) Object.DestroyImmediate(ch.gameObject); foreach (var u in g.GetComponents<UdonSharpBehaviour>()) Object.DestroyImmediate(u); var au = g.GetComponent<AudioSource>(); au.playOnAwake = false; return au; }
+                st.onSound = Copy(fan.toggleSound, "SeedOnSfx"); st.offSound = Copy(fan.offSound, "SeedOffSfx");
+            }
+            UdonSharpEditorUtility.CopyProxyToUdon(st);
+            var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(st); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Manual; EditorUtility.SetDirty(ub); }
+            EditorUtility.SetDirty(st);
+        }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+        Debug.Log("[たね] オンオフ式にした");
+    }
+
     [MenuItem("FuwaCourse/済み（押す前に相談）/あそびば/重力のたねのエフェクトをまっすぐに")]
     static void MenuKeepGravityUpright()
     {
