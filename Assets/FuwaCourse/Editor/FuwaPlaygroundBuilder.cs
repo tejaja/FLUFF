@@ -2067,6 +2067,8 @@ public static class FuwaPlaygroundBuilder
         var pp = Object.FindObjectsOfType<FuwaPlaygroundPortals>(true).First();
         var vis = new List<Transform>();
         foreach (var p in new[] { pp.a, pp.b }) foreach (Transform c in p) vis.Add(c);   // Swirl・Back
+        // 浮いた輪・足もとの光・きらきら（PortalA_FX / PortalB_FX の子。FX の親は FuwaFollowPose で動かすので親は残す）
+        foreach (var fxName in new[] { "PortalA_FX", "PortalB_FX" }) { var fx = pp.transform.parent.Find(fxName); if (fx != null) foreach (Transform c in fx) vis.Add(c); }
         pp.visuals = vis.ToArray();
         var cams = pp.transform.Find("PortalCams"); pp.cams = cams != null ? cams.gameObject : null;
         var fan = Object.FindObjectsOfType<FuwaPlaygroundIceToy>(true).FirstOrDefault();
