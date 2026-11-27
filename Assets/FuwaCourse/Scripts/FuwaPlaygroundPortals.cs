@@ -17,6 +17,8 @@ public class FuwaPlaygroundPortals : UdonSharpBehaviour
     [Tooltip("向こうを映すカメラ一式（オフの間は止める）")]
     public GameObject cams;
     public float openSpeed = 1.6f;
+    [Tooltip("くぐった判定：面からこの距離（m、奥行き）以内の時だけ")]
+    public float maxDepth = 1f;
     public AudioSource onSound, offSound;
     [UdonSynced] private bool _on;
     private float _k = -1f;
@@ -72,6 +74,8 @@ public class FuwaPlaygroundPortals : UdonSharpBehaviour
     {
         Vector3 l = p.InverseTransformPoint(w);
         float dx = l.x / halfW, dy = (l.y - holeCenterY) / halfH;
+        // 2026-11-27 奥行きも見る（2–5 の FuwaPortal と同じ不具合：一瞬で遠くへ移った時に、面の奥の「穴の延長」にいるとくぐった扱いになっていた）
+        if (Mathf.Abs(l.z) > maxDepth) return false;
         return dx * dx + dy * dy <= 1f;
     }
 

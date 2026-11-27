@@ -33,6 +33,20 @@ public class FuwaPortal : UdonSharpBehaviour
     private Material _bm, _gm, _nm;
     private float _prevHead = 1f, _prevBall = 1f;
     private bool _init;
+    // 2026-11-27 てじゃ「2–5 の最初のポータルでふわふわがどっか見えないとこいっちゃった（再現なし）」：
+    //  前は「面の手前→奥に移った」＋「移った後の点が穴の幅（x・y だけ、奥行きなし）の中」で判定していたので、
+    //  ふわふわ・人が一瞬で遠くへ移った時（アウトで戻る・出し直し・呼び出し・テレポート）に、移った先がたまたま面の奥の「穴の延長」だとくぐった扱いになっていた。
+    //  → 前の位置と今の位置を結んだ線が面を通る点で穴の中か見る。1フレームで maxStep 以上動いた時はくぐった扱いにしない
+    [Tooltip("1フレームでこれより大きく動いた時は、くぐったとみなさない（m）")]
+    public float maxStep = 2f;
+    private Vector3 _prevHeadPos, _prevBallPos;
+    private bool Crossed(Vector3 prev, float sPrev, Vector3 cur, float sCur, float margin)
+    {
+        if (!(sPrev > 0f && sCur <= 0f)) return false;
+        if ((cur - prev).sqrMagnitude > maxStep * maxStep) return false;
+        float t = sPrev / Mathf.Max(1e-5f, sPrev - sCur);
+        return InHole(Vector3.Lerp(prev, cur, t), margin);
+    }
 
     // 2026-11-17 コースにいない間は止められる（FuwaCourseLod の courseOnlyBehaviours）。くぐった直後の勢いの残りは捨てる
     public void LodStop() { _velFrames = 0; _init = false; }
@@ -110,7 +124,7 @@ public class FuwaPortal : UdonSharpBehaviour
         {
             Vector3 head = p.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position;
             float s = Side(head);
-            if (_init && _prevHead > 0f && s <= 0f && InHole(head, 0f))
+            if (_init && Crossed(_prevHeadPos, _prevHead, head, s, 0f))
             {
                 // 2026-11-10 てじゃ「歩いてはいったときに一瞬カクっとなる」→ プレイスペースの原点ごと動かす（頭の位置・向きがぴったり続く）、勢いは次のフレームでもどす
                 Vector3 vel = p.GetVelocity();
@@ -126,21 +140,21 @@ public class FuwaPortal : UdonSharpBehaviour
                 s = 1f;   // 向こうへ出たので、こちらの面の記録はもどす（出口の面は手前にいるのでくぐり返さない）
             }
             else if (_velFrames > 0) { _velFrames--; p.SetVelocity(_pendingVel); }
-            _prevHead = s;
+            _prevHead = s; _prevHeadPos = head;
         }
         if (_rb != null)
         {
             Vector3 c = _rb.position;
             float s = Side(c);
-            if (_init && _prevBall > 0f && s <= 0f && InHole(c, ballRadius * 0.6f))
+            if (_init && Crossed(_prevBallPos, _prevBall, c, s, ballRadius * 0.6f))
             {
                 Vector3 np = MapPoint(c), nv = MapDir(_rb.velocity);
                 _rb.position = np; ball.transform.position = np; _rb.velocity = nv;
                 _rb.rotation = MapRot(_rb.rotation);
                 ball.PortalMoved(np - c);
-                s = 1f;
+                s = 1f; c = np;
             }
-            _prevBall = s;
+            _prevBall = s; _prevBallPos = c;
             // うつし：ふわふわが出口の手前（向こう側）の近くにいて見えている間
             if (ghost != null)
             {
