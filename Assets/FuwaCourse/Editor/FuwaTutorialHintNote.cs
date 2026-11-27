@@ -14,7 +14,7 @@ public static class FuwaTutorialHintNote
     const float ShiftLeft = 0.14f;   // m（看板から見て左へ）
     const float Tilt = 2.5f;         // 度（左回り）
     static readonly Color NoteColor = new Color(1f, 0.95f, 0.76f, 1f);
-    static readonly Color PinColor = new Color(0.86f, 0.24f, 0.24f, 1f);
+    static readonly Color PinColor = new Color(0.922f, 0.298f, 0.278f, 1f);   // 上の看板のピン（頂点カラー）と同じ
 
     [MenuItem("FuwaCourse/済み（押す前に相談）/チュートリアル：コツをメモ紙にする")]
     static void Menu() { Debug.Log(ApplyAll()); }
@@ -93,11 +93,65 @@ public static class FuwaTutorialHintNote
             go.name = "NotePin"; Undo.RegisterCreatedObjectUndo(go, "hint note");
             go.transform.SetParent(ht, false); pin = go.transform;
         }
-        pin.localPosition = new Vector3(b.center.x, b.max.y + 0.1f, z - 0.03f);
-        pin.localRotation = Quaternion.identity;
-        pin.localScale = new Vector3(0.12f, 0.12f, 0.06f);
-        var r = pin.GetComponent<Renderer>(); r.sharedMaterial = pinMat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        pin.localPosition = new Vector3(b.center.x, b.max.y + 0.1f, z - 0.01f);
+        var r = pin.GetComponent<Renderer>(); r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        // 2026-11-27 てじゃ「赤いピン、上の看板とそろえよ」：看板（SignModel）のピンの形・色（頂点カラー）・マテリアルをそのまま使う
+        var signModel = ht.parent != null && ht.parent.parent != null ? ht.parent.parent.Find("Sign/SignModel") : null;
+        var pm = signModel != null ? SignPinMesh(signModel) : null;
+        if (pm != null)
+        {
+            pin.GetComponent<MeshFilter>().sharedMesh = pm;
+            r.sharedMaterial = signModel.GetComponent<Renderer>().sharedMaterial;
+            // 看板のピンは看板の向き（+Z が奥）で作られている → 看板と同じ向き、大きさ 1（ワールド）
+            pin.rotation = signModel.rotation;
+            pin.localScale = Vector3.one / ht.lossyScale.x;
+        }
+        else
+        {
+            pin.localRotation = Quaternion.identity;
+            pin.localScale = new Vector3(0.056f, 0.056f, 0.025f) / ht.lossyScale.x;
+            r.sharedMaterial = pinMat;
+        }
         pin.gameObject.isStatic = ht.gameObject.isStatic;
         return true;
+    }
+
+    const string PinMeshPath = "Assets/FuwaCourse/Meshes/Sign_NotePin.asset";
+    // 看板のメッシュから、ピン1個ぶん（赤い頂点のかたまり）の三角形を抜き出して、まん中を原点にしたメッシュにする
+    static Mesh SignPinMesh(Transform signModel)
+    {
+        var have = AssetDatabase.LoadAssetAtPath<Mesh>(PinMeshPath);
+        if (have != null) return have;
+        var src = signModel.GetComponent<MeshFilter>().sharedMesh; if (src == null) return null;
+        var v = src.vertices; var n = src.normals; var c = src.colors; var tr = src.triangles;
+        if (c == null || c.Length != v.Length) return null;
+        bool Red(int i) { var k = c[i]; return k.r > 0.5f && k.g < 0.35f && k.b < 0.35f; }
+        int first = -1; for (int i = 0; i < v.Length; i++) if (Red(i)) { first = i; break; }
+        if (first < 0) return null;
+        Vector3 p0 = v[first];
+        var map = new System.Collections.Generic.Dictionary<int, int>();
+        var nv = new System.Collections.Generic.List<Vector3>(); var nn = new System.Collections.Generic.List<Vector3>(); var nc = new System.Collections.Generic.List<Color>(); var nt = new System.Collections.Generic.List<int>();
+        for (int t = 0; t < tr.Length; t += 3)
+        {
+            bool ok = true;
+            for (int k = 0; k < 3; k++) { int i = tr[t + k]; if (!Red(i) || (v[i] - p0).magnitude > 0.1f) { ok = false; break; } }
+            if (!ok) continue;
+            for (int k = 0; k < 3; k++)
+            {
+                int i = tr[t + k];
+                if (!map.TryGetValue(i, out int j)) { j = nv.Count; map[i] = j; nv.Add(v[i]); nn.Add(n != null && n.Length == v.Length ? n[i] : Vector3.back); nc.Add(c[i]); }
+                nt.Add(j);
+            }
+        }
+        if (nv.Count == 0) return null;
+        var bb = new Bounds(nv[0], Vector3.zero); foreach (var p in nv) bb.Encapsulate(p);
+        // 奥（看板の面）側を原点に：x・y はまん中
+        Vector3 o = new Vector3(bb.center.x, bb.center.y, bb.min.z);   // 看板の +Z は手前（見る人の方）→ 奥は min.z
+        for (int i = 0; i < nv.Count; i++) nv[i] -= o;
+        var m = new Mesh { name = "Sign_NotePin" };
+        m.SetVertices(nv); m.SetNormals(nn); m.SetColors(nc); m.SetTriangles(nt, 0); m.RecalculateBounds();
+        System.IO.Directory.CreateDirectory("Assets/FuwaCourse/Meshes");
+        AssetDatabase.CreateAsset(m, PinMeshPath);
+        return m;
     }
 }
