@@ -1,4 +1,4 @@
-// 2026-11-27 かってにスクショの構図テスト用（てじゃ「1回テストで全コース撮ってみせて」）。Play（ClientSim）中にメニューから。
+﻿// 2026-11-27 かってにスクショの構図テスト用（てじゃ「1回テストで全コース撮ってみせて」）。Play（ClientSim）中にメニューから。
 //  コースごとにフォトポイントへ自分とふわふわを置いて、本物の FuwaPhotoAlbum に撮らせ、ボードの6枚を1枚の画像にして保存する。
 //  アバターの代わりに Nita を自分の位置に立てる。テストが終わったら消してよいファイル
 using System.Collections.Generic;
@@ -14,6 +14,8 @@ public static class FuwaPhotoTestBot
 {
     static string[] AllCourses = { "FuwaCourse0", "FuwaCourse", "FuwaCourse2", "FuwaCourse3", "FuwaCourse4", "FuwaCourse5", "FuwaCourse2_1", "FuwaCourse2_2", "FuwaCourse2_3", "FuwaCourse2_4", "FuwaCourse2_5" };
     public static string OutDir = "";
+    // 指定するとプレイヤーとふわふわをここに置いて撮る（実際の遊び方に近い位置で1か所だけ試す時。2026-11-28）
+    public static Vector3? ForcePlayer, ForceBall;
     static string[] Courses;
     static bool _run;
     static int _c, _p, _phase;
@@ -114,6 +116,11 @@ public static class FuwaPhotoTestBot
                 }
             if (!found) { _ppos = pt.transform.position - Vector3.up * 3.5f; L("    no ground " + pt.name); }
             _bpos = pt.transform.position + _fwd * 0.8f + Vector3.up * 0.9f;
+            if (ForcePlayer.HasValue && ForceBall.HasValue)
+            {
+                _ppos = ForcePlayer.Value; _bpos = ForceBall.Value;
+                Vector3 d = _bpos - _ppos; d.y = 0f; if (d.sqrMagnitude > 0.01f) _fwd = d.normalized;
+            }
             lp.TeleportTo(_ppos, Quaternion.LookRotation(_fwd));
             _t0 = Time.realtimeSinceStartup; _phase = 1; _fired = false; _rt = 0;
             return;
