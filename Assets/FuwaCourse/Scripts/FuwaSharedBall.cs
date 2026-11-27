@@ -217,13 +217,13 @@ public class FuwaSharedBall : UdonSharpBehaviour
     {
         Init();
         if (!Networking.IsOwner(gameObject) || _popped || _waiting) return;
-        Pop();
+        Dbg("pop:cleanup"); Pop();
     }
     // 持ち主：止まったあとはじける
     public void CharPop()
     {
         if (!Networking.IsOwner(gameObject) || _popped || _waiting) return;
-        Pop();
+        Dbg("pop:charpop"); Pop();
     }
 
     private void DouseBy(float charge)
@@ -250,7 +250,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
         if (owner && _sCharAt > 0.0)
         {
             if (_waiting || _popped) _sCharAt = 0.0;
-            else if (Networking.GetServerTimeInSeconds() - _sCharAt > charFreezeTime) Pop();
+            else if (Networking.GetServerTimeInSeconds() - _sCharAt > charFreezeTime) { Dbg("pop:charTimer charAt=" + _sCharAt); Pop(); }
         }
         // 黒焦げの見た目（全員：同期された時刻で）
         bool ch = Charring() && _here;
@@ -384,6 +384,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
     public void SpawnVariant(Vector3 shotDir, float size, Color color, float shotK)
     {
         Init();
+        Dbg("spawnVariant");
         if (!Networking.IsOwner(gameObject)) return;
         _pending = 0;
         if (!_waiting || _popped) SetWaiting();   // 出ている玉を使い回す時は、いったんキノコへ戻す
@@ -530,6 +531,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
     // 持ち主：キノコの上に戻して、吹かれるまで止めて待つ
     private void SetWaiting()
     {
+        Dbg("setWaiting");
         _shotCharge = 0f; _shotDir = Vector3.zero; _shotAt = -100.0;
         _sBurnAt = 0.0; _sCharAt = 0.0; _sBubbled = false;
         _waiting = true;
@@ -599,6 +601,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
     public void RemoteShot(Vector3 velocityChange, bool release, float charge)
     {
         Init();
+        Dbg("remoteShot rel=" + release);
         if (!Networking.IsOwner(gameObject) || _popped || locked || Charring()) return;
         if (_waiting && !release) return;   // 持ち主の画面ではまだキノコの中：傘を撃った分だけ受け付ける
         if (_waiting) MarkRelease();
@@ -710,6 +713,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
     public override void OnDeserialization()
     {
         Init();
+        if (_nWaiting != _waiting || _nPopped != _popped) Dbg("deser nW=" + _nWaiting + " nP=" + _nPopped + " pending=" + _pending + " isOwner=" + Networking.IsOwner(gameObject));
         _lastHeard = Time.time;
         if (Networking.IsOwner(gameObject)) return;
         UpdateHere();
@@ -779,6 +783,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
     // 持ち主が入れ替わった（前の持ち主が抜けた時など）：新しい持ち主が、今の自分の状態をすぐみんなに送る
     public override void OnOwnershipTransferred(VRCPlayerApi player)
     {
+        Dbg("ownerTransferred -> " + (player != null ? player.displayName : "null"));
         Init();
         _lastHeard = Time.time;
         if (player == null || !player.isLocal) return;
@@ -840,6 +845,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
 
     public void PlayPop()
     {
+        Dbg("PlayPop recv");
         if (popEffect != null) { popEffect.transform.position = transform.position; popEffect.Play(); }
         if (sfxPop != null) sfxPop.Play();
     }
@@ -927,7 +933,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
             // 見張り：エリアにいて飛んでいるのに固定のまま（前の作りの黒焦げ・入れ替わりの残り）なら、動けるように戻す
             if (_here && !_waiting && !_popped && _rb.isKinematic) { _rb.isKinematic = false; _sendSoon = true; }
             // チルルーム：床に転がっている間に「消える」へ切り替えた（ぶつかった瞬間はもう過ぎている）ので、床に触れていたらはじける
-            if (_here && playground != null && !_waiting && !_popped && !_rb.isKinematic && playground.PopGround() && GroundPopAllowed() && TouchingPopGround()) Pop();
+            if (_here && playground != null && !_waiting && !_popped && !_rb.isKinematic && playground.PopGround() && GroundPopAllowed() && TouchingPopGround()) { Dbg("pop:touchGround"); Pop(); }
             // 弾けたまま戻す予定が無い（弾けている間に持ち主が入れ替わった）なら、ここで戻す予定を立てる
             if (_popped && _respawnAt < 0f) _respawnAt = Time.time + respawnDelay;
             // 飛んでいる間はときどき今の位置を送る（壁にぶつかった後はすぐ送る）
@@ -941,7 +947,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
             _awaySince = -1f;
             // 持ち主からしばらく何も届かない＝持ち主の画面ではロビーが非表示（ひとりで・入口へ行った）。ロビーにいる自分が引き継ぐ
             _lastHeard = Time.time;
-            Networking.SetOwner(Networking.LocalPlayer, gameObject);
+            Dbg("takeover sAway=" + _sAway + " silent=" + (Time.time - _lastHeard)); Networking.SetOwner(Networking.LocalPlayer, gameObject);
         }
         if (_shownHidden != ShouldHide()) ApplyHiddenVisual();
         if (_trail != null) _trail.emitting = !ShouldHide();
@@ -1022,7 +1028,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
             return;
         }
         if (!GroundPopAllowed()) return;   // キノコから出た直後で、まだ出発点の床に触れている
-        Pop();
+        Dbg("pop:collision " + collision.collider.name); Pop();
     }
 
     private void MarkRelease() { _clearOfHome = false; _releasedAt = Time.time; }
@@ -1051,7 +1057,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
     private void OnTriggerEnter(Collider other)
     {
         if (other == null || _waiting || _popped || !Networking.IsOwner(gameObject)) return;
-        if (other.GetComponent<FuwaSpike>() != null) Pop();
+        if (other.GetComponent<FuwaSpike>() != null) { Dbg("pop:spike"); Pop(); }
     }
 
     private void BounceOff(FuwaBounce bo)
@@ -1066,6 +1072,14 @@ public class FuwaSharedBall : UdonSharpBehaviour
     }
 
     // 持ち主の画面で：床に落ちてはじける
+    // 2026-11-28 調べる用のログ（[FuwaBallDbg]）。原因がわかったら消す
+    private void Dbg(string msg)
+    {
+        VRCPlayerApi o = Networking.GetOwner(gameObject);
+        Debug.Log("[FuwaBallDbg] " + gameObject.name + " st=" + Networking.GetServerTimeInSeconds().ToString("F2") + " owner=" + (o != null ? o.displayName : "?") + " mine=" + Networking.IsOwner(gameObject)
+            + " w=" + _waiting + " p=" + _popped + " here=" + _here + " kin=" + (_rb != null && _rb.isKinematic) + " burn=" + _sBurnAt.ToString("F1") + " char=" + _sCharAt.ToString("F1") + " pos=" + transform.position.ToString("F1") + " | " + msg);
+    }
+
     private void Pop()
     {
         // 床に落ちたかどうかは持ち主の画面で決める
