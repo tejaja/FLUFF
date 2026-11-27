@@ -2567,6 +2567,7 @@ public static class FuwaCourse2_1Builder
     public static float WallOrbHeight = 1.0f;
     // 球の場所（壁の長さの割合）。WallDiv 番目の球の下が水の分かれ目（そこから両はしへ流れて、はしの切れ目から滝で落ちる）
     public static float[] WallOrbsL = { 0.2f, 0.55f }, WallOrbsR = { 0.4f, 0.85f };
+    public static float[] WallOrbPos = { 0.42f, 0.93f };   // 2026-11-27 青い球（クリスタル）の置き場所：真ん中よりちょい手前・一番奥（左右とも）
     public static int WallDivL = 1, WallDivR = 0;
     // はしの切れ目の滝の幅（壁の上の水の幅に対する割合）
     public static float WallEndSpill = 1f;
@@ -2774,12 +2775,13 @@ public static class FuwaCourse2_1Builder
         }
 
         // 青い球（水面の上に浮かんで、水を落とす）。落ちる所は湧き水の波紋
-        foreach (float at in o < 0 ? WallOrbsL : WallOrbsR)
+        // 2026-11-27 てじゃ「滝上のクリスタルの波紋、坂で途切れてる→消そう」「各滝の2個のうち1個は一番奥、もう1個は真ん中よりちょい手前」→ 置き場所は WallOrbPos、波紋（Spring）なし
+        //  （WallOrbsL/R は水の区切り sDiv にも使っているので、形を変えないようそのまま）
+        foreach (float at in WallOrbPos)
         {
             float s = Mathf.Lerp(wa, wb, at); Center(s, out var p, out var d); var q = p + Right(d) * o * (WallIn + WallW * 0.45f);
             var pos = new Vector3(q.x, surf(s), q.y);
             var sp = new GameObject(nm + "_Orb" + at.ToString("F2")).transform; sp.SetParent(g, false);
-            Spring(sp, pos);
             WaterOrb(sp, pos, "WaterOrb", WallOrbHeight, 0.36f, 0.24f);
         }
     }
@@ -3851,7 +3853,8 @@ public static class FuwaCourse2_1Builder
             float lat = Mathf.Lerp(la, lb, k / (float)nLip);
             Center(sl1, out var p1, out var d1); var q1 = p1 + Right(d1) * lat; lipF.Add(new Vector3(q1.x, yTop, q1.y)); outF.Add(new Vector3(d1.x, 0, d1.y));
         }
-        var gateF = LipFalls(gate, "GateFalls", "GateFalls", lipF, outF, new List<Vector2> { new Vector2(0.3f, 0.012f), new Vector2(0.02f, 0.012f), new Vector2(-0.18f, -0.15f), new Vector2(-0.3f, -0.6f), new Vector2(-0.34f, -1.5f), new Vector2(-0.35f, float.NaN) }, surf);
+        // 2026-11-27 てじゃ「最後の滝をくぐる時、横見たら滝がぺっちゃんこ、最初の滝みたいに厚み欲しい」→ 外へ ふくらませて厚み約0.75m＋両はしにふた（シーンでは GateFallsSide をメッシュで足した。作り直す時はふたも作ること）
+        var gateF = LipFalls(gate, "GateFalls", "GateFalls", lipF, outF, new List<Vector2> { new Vector2(0.3f, 0.012f), new Vector2(0.02f, 0.012f), new Vector2(-0.25f, -0.15f), new Vector2(-0.5f, -0.6f), new Vector2(-0.68f, -1.5f), new Vector2(-0.75f, float.NaN) }, surf);
         // 落ち口の手前の平らな所は真ん中の水の見えている色で、上のはしの白い帯なし（2026-10-28 てじゃ「境目も全部消していきたい」）。
         // 落ち口の下は水面でなく岩の橋なので、上のはしを透明にする（_TopFade）と白っぽい帯が広がった → 色だけ
         { BlendLipIntoWater(gateF, GateWaterLook, 0.3f); var gm = gateF.GetComponent<MeshRenderer>().sharedMaterial; gm.SetFloat("_TopFade", 0f); EditorUtility.SetDirty(gm); }
