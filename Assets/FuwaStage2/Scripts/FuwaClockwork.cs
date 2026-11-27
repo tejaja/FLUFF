@@ -28,13 +28,24 @@ public class FuwaClockwork : UdonSharpBehaviour
     private Quaternion[] _last;
     private bool _init;
 
+    // 2026-11-27 てじゃ「いくつかの歯車の噛み合いが壊れてる」：元の角度を wrap でくり返していたが、ratio が π 入り（分数÷π）で
+    //  ratio × wrap が 360 の倍数にならず、くり返す瞬間（1時間ごと）に歯車ごとにちがう角度へ飛んでかみ合いがずれていた。
+    //  → 歯車ごとの回る速さ（ratio × speed）を「分数 × baseRate」で持ち、共通時計 B = 時刻 × baseRate から分数で計算する（くり返しなし、FuwaGearRide も同じ B）
+    [Tooltip("共通の元の速さ（度/秒）。2–4 は 10/π")]
+    public float baseRate = 3.18309886f;
+    private int[] _kn, _kd;
+
+    private void Start() { _kn = FuwaGearRide.ExactNum(gears, ratio, speed, baseRate); _kd = FuwaGearRide.ExactDen(gears, ratio, speed, baseRate); }
+
     private void Update()
     {
         // 2026-11-21 てじゃ「おっかけカメラで、ギミックの見た目を対象の人に合わせたい」→ 共通時計（サーバー時刻）で動かす：だれの画面でも同じタイミング
-        float a = (float)(((speed * Networking.GetServerTimeInSeconds()) % wrap + wrap) % wrap);
+        double st = Networking.GetServerTimeInSeconds();
+        float a = (float)(((speed * st) % wrap + wrap) % wrap);
+        double B = st * baseRate;
         if (gears != null && ratio != null && phase != null)
             for (int i = 0; i < gears.Length; i++)
-                if (gears[i] != null) gears[i].localRotation = Quaternion.Euler(0f, -Mathf.Repeat(ratio[i] * a + phase[i], 360f), 0f);
+                if (gears[i] != null) gears[i].localRotation = Quaternion.Euler(0f, -Mathf.Repeat(FuwaGearRide.ExactAngle(B, _kn, _kd, i, ratio[i] * a) + phase[i], 360f), 0f);
         Carry();
         if (sliders == null || sliderGear == null) return;
         for (int k = 0; k < sliders.Length; k++)

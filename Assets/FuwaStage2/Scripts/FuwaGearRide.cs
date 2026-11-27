@@ -41,13 +41,61 @@ public class FuwaGearRide : UdonSharpBehaviour
     private Quaternion[] _last;
     private bool _init;
 
-    private void Start() { Apply(); }
+    // 2026-11-27 かみ合いずれ対策（FuwaClockwork と同じ）：歯車ごとの速さを「分数 × baseRate」にして、共通時計 B から計算する（wrap でくり返さない）
+    [Tooltip("共通の元の速さ（度/秒）。FuwaClockwork と同じ値に（2–4 は 10/π）")]
+    public float baseRate = 3.18309886f;
+    private int[] _kn, _kd;
+    private double _B;
+
+    private void Start() { _kn = ExactNum(gears, ratio, speed, baseRate); _kd = ExactDen(gears, ratio, speed, baseRate); Apply(); }
+
+    // x を分数 n/d（d ≦ 100000）にする。うまくいかなければ d = 0
+    private static int RatN(double x, bool wantDen)
+    {
+        double h0 = 0, h1 = 1, k0 = 1, k1 = 0, v = x;
+        for (int it = 0; it < 30; it++)
+        {
+            double fa = System.Math.Floor(v);
+            double h2 = fa * h1 + h0, k2 = fa * k1 + k0;
+            if (k2 > 100000) break;
+            h0 = h1; h1 = h2; k0 = k1; k1 = k2;
+            if (System.Math.Abs(h1 / k1 - x) <= System.Math.Abs(x) * 1e-6 + 1e-9) return wantDen ? (int)k1 : (int)h1;
+            double fr = v - fa;
+            if (fr < 1e-12) break;
+            v = 1.0 / fr;
+        }
+        return 0;
+    }
+    public static int[] ExactNum(Transform[] g, float[] r, float spd, float rate)
+    {
+        int n = r != null ? r.Length : 0;
+        int[] o = new int[n];
+        for (int i = 0; i < n; i++) o[i] = rate > 0f ? RatN((double)r[i] * spd / rate, false) : 0;
+        return o;
+    }
+    public static int[] ExactDen(Transform[] g, float[] r, float spd, float rate)
+    {
+        int n = r != null ? r.Length : 0;
+        int[] o = new int[n];
+        for (int i = 0; i < n; i++) o[i] = rate > 0f ? RatN((double)r[i] * spd / rate, true) : 0;
+        return o;
+    }
+    // 歯車 i の角度（phase なし）。分数にできなかった時は fallback（前の計算）
+    public static float ExactAngle(double B, int[] kn, int[] kd, int i, float fallback)
+    {
+        if (kn == null || kd == null || i >= kd.Length || kd[i] <= 0) return fallback;
+        double m = 360.0 * kd[i];
+        double x = B % m; if (x < 0) x += m;
+        return (float)((kn[i] * x / kd[i]) % 360.0);
+    }
 
     private void Update()
     {
         // 2026-11-07 時計塔（FuwaClockwork、Time.time）とかさ歯車でつながるので、同じ時間で回す
         // 2026-11-21 てじゃ「おっかけカメラで、ギミックの見た目を対象の人に合わせたい」→ 共通時計（サーバー時刻）で動かす：だれの画面でも同じタイミング
-        _a = (float)(((speed * Networking.GetServerTimeInSeconds()) % wrap + wrap) % wrap);
+        double st = Networking.GetServerTimeInSeconds();
+        _a = (float)(((speed * st) % wrap + wrap) % wrap);
+        _B = st * baseRate;
         Apply();
         Carry();
         SyncMusic();
@@ -71,7 +119,7 @@ public class FuwaGearRide : UdonSharpBehaviour
     {
         if (gears == null || ratio == null || phase == null) return;
         for (int i = 0; i < gears.Length; i++)
-            if (gears[i] != null) gears[i].localRotation = Quaternion.Euler(0f, -Mathf.Repeat(ratio[i] * _a + phase[i], 360f), 0f);
+            if (gears[i] != null) gears[i].localRotation = Quaternion.Euler(0f, -Mathf.Repeat(ExactAngle(_B, _kn, _kd, i, ratio[i] * _a) + phase[i], 360f), 0f);
         if (crank == null) return;
         float ca = Mathf.Repeat(crankRatio * _a + crankPhase, 360f);
         crank.localRotation = Quaternion.Euler(0f, 0f, ca);
