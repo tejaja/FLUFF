@@ -102,7 +102,7 @@ Shader "FuwaStage2/Waterfall"
                 {
                     // 落ち口の手前は池の色、落ち口へ近づくと白い筋の滝の色へ。上のはし（池の下へもぐる所）の泡は出さない
                     float dT = (1 - i.uv.y) * i.size.y;
-                    float pk = 1 - smoothstep(_PondTop - 0.1, _PondTop + 0.35, dT);
+                    float pk = 1 - smoothstep(_PondTop - 0.1, _PondTop + 0.6, dT);   // 2026-11-27 てじゃ「上の平らな水と落ちる膜の境の線」→ 池の色から滝の色への切りかえをゆるやかに（0.35→0.6）
                     pk *= smoothstep(0.3, 0.7, i.ny);   // 上向きの面だけ（滝の裏から見える下向きの面は滝の色のまま。2026-10-27 てじゃ「滝の裏からみたとき上が違和感」）
                     // 池の水面と同じ計算の色（波紋・きらめき）。池の水面の続きに見えるように
                     float3 pc = _PondColor.rgb;
