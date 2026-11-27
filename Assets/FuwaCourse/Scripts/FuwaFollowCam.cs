@@ -17,6 +17,11 @@ public class FuwaFollowCam : UdonSharpBehaviour
 {
     [Tooltip("追っかけ用のカメラ（Target Texture に feedTexture を入れておく）")]
     public Camera cam;
+    [Tooltip("太陽（リアルタイムの影を落とす平行光源）。ステージ1から下のステージ2を映す間、カメラが描く時だけ影を切る")]
+    public Light sun;
+    private bool _camNoShadow;
+    private LightShadows _sunShadows;
+    private bool _sunOff;
     [Tooltip("VRChatカメラのレンズの前に置く板（Fuwa/PhotoCamFeed のマテリアル）")]
     public Transform feed;
     public Renderer feedRenderer;
@@ -278,6 +283,22 @@ public class FuwaFollowCam : UdonSharpBehaviour
     private int[] _shadowMode = new int[0];
     private int _shadowN;
     private int _shadowKey = -999999;
+    // カメラ（この GameObject の Camera）が描く直前・直後だけ呼ばれる
+    private void OnPreCull()   // 影を落とすライトはカリングで決まるので、その前に切る
+    {
+        if (!_camNoShadow || sun == null || _sunOff) return;
+        _sunShadows = sun.shadows;
+        if (_sunShadows == LightShadows.None) return;
+        sun.shadows = LightShadows.None;
+        _sunOff = true;
+    }
+    private void OnPostRender()
+    {
+        if (!_sunOff) return;
+        if (sun != null) sun.shadows = _sunShadows;
+        _sunOff = false;
+    }
+
     private void UpdateShadowOverrides()
     {
         int myStage = MyStage();
@@ -583,6 +604,9 @@ public class FuwaFollowCam : UdonSharpBehaviour
         ShowCourse(showCourse);
         ShowLobby(tSolo && !tSeen && tStage == 1);   // コースの番号はロビーに戻っても前のコースのまま残るので、ひとりモードの間はロビーも一緒に出す
         ShowStage2Lobby(tSolo && !tSeen && tStage == 2);
+        // 2026-11-28 てじゃ「ステージ1からおっかけカメラでステージ2の人を見ると、カメラの中にステージ1の島やコースの影が落ちる」：
+        //  ステージ2はステージ1の真下で太陽は真上から。影はカメラごとに分けられないので、カメラが描く間だけ太陽の影を切る（自分の画面の影は変わらない）
+        _camNoShadow = tSolo && !tSeen && tStage == 2;
         ShowPlayground(who != lp && ghost != null && ghost.GetArea() == playgroundArea && MyArea() != playgroundArea);
         ShowHub(who != lp && ghost != null && ghost.GetArea() == hubArea && MyArea() != hubArea);
         UpdateShadowOverrides();
