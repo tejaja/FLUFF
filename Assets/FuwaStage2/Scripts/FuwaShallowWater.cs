@@ -34,6 +34,13 @@ public class FuwaShallowWater : UdonSharpBehaviour
     // 空なら自分のコライダーの外接箱で見る（まっすぐな池・テスト場）
     public BoxCollider[] areas;
     public float splashStrength = 1.2f;
+    [Header("川底で見る（2–1。入っていれば areas より優先）")]
+    [Tooltip("この水の川底のコライダー（Bed・Body）。足の真下がこれで、水面より下なら水の中")]
+    public Collider[] floors;
+    [Tooltip("水面の高さ（ワールド）")]
+    public float surfaceY;
+    [Tooltip("足の下を見る光線が当たるレイヤー（プレイヤーが立てる物）")]
+    public LayerMask floorMask = ~0;
 
     private Collider _col;
     private bool _in;
@@ -54,7 +61,13 @@ public class FuwaShallowWater : UdonSharpBehaviour
     private void MakeBox()
     {
         bool any = false; Bounds b = new Bounds();
-        if (areas != null)
+        if (floors != null)
+            for (int i = 0; i < floors.Length; i++)
+            {
+                if (floors[i] == null) continue;
+                if (!any) { b = floors[i].bounds; any = true; } else b.Encapsulate(floors[i].bounds);
+            }
+        if (!any && areas != null)
             for (int i = 0; i < areas.Length; i++)
             {
                 if (areas[i] == null) continue;
@@ -73,6 +86,17 @@ public class FuwaShallowWater : UdonSharpBehaviour
 
     private bool FeetInWater(Vector3 f)
     {
+        // 2026-11-28 てじゃ「川の上を減速なしで走れる／3連滝の道の端で水判定」→ 箱をやめて、足の真下が川底（floors）かを光線で直接見る。
+        //  （曲がった川に合わせた箱は道の端にはみ出し、川底が一段深い所は箱の外になっていた。道・石・岩の上なら水ではない）
+        if (floors != null && floors.Length > 0)
+        {
+            if (f.y > surfaceY + surfaceAbove) return false;
+            RaycastHit hit;
+            if (!Physics.Raycast(f + new Vector3(0f, 0.3f, 0f), Vector3.down, out hit, 3f, floorMask, QueryTriggerInteraction.Ignore)) return false;
+            Collider c = hit.collider;
+            for (int i = 0; i < floors.Length; i++) if (floors[i] == c) { _hitTop = surfaceY; return true; }
+            return false;
+        }
         if (areas != null && areas.Length > 0)
         {
             for (int i = 0; i < areas.Length; i++)

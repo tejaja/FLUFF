@@ -159848,6 +159848,11 @@ MonoBehaviour:
   fx: {fileID: 0}
   areas: []
   splashStrength: 1.2
+  floors: []
+  surfaceY: 0
+  floorMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
 --- !u!114 &247359082
 MonoBehaviour:
   m_ObjectHideFlags: 2
@@ -163554,6 +163559,13 @@ MonoBehaviour:
   - {fileID: 562395670}
   - {fileID: 1902604503}
   splashStrength: 1.2
+  floors:
+  - {fileID: 1400336344}
+  - {fileID: 549695147}
+  surfaceY: -164.46999
+  floorMask:
+    serializedVersion: 2
+    m_Bits: 4294183383
 --- !u!1 &256198312
 GameObject:
   m_ObjectHideFlags: 0
@@ -195153,6 +195165,13 @@ MonoBehaviour:
   - {fileID: 2026640960}
   - {fileID: 222660530}
   splashStrength: 1.2
+  floors:
+  - {fileID: 208791657}
+  - {fileID: 293642218}
+  surfaceY: -167.34999
+  floorMask:
+    serializedVersion: 2
+    m_Bits: 4294183383
 --- !u!1 &296879916 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 4595688177005393212, guid: 2d91b4a507b897c4eac8148e7b591de8, type: 3}
@@ -284298,6 +284317,11 @@ MonoBehaviour:
   fx: {fileID: 0}
   areas: []
   splashStrength: 1.2
+  floors: []
+  surfaceY: 0
+  floorMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
 --- !u!114 &442215466
 MonoBehaviour:
   m_ObjectHideFlags: 2
@@ -391233,6 +391257,13 @@ MonoBehaviour:
   - {fileID: 369538475}
   - {fileID: 2103102892}
   splashStrength: 1.2
+  floors:
+  - {fileID: 843970276}
+  - {fileID: 516620301}
+  surfaceY: -168.09999
+  floorMask:
+    serializedVersion: 2
+    m_Bits: 4294183383
 --- !u!1 &606914539
 GameObject:
   m_ObjectHideFlags: 0
@@ -449624,6 +449655,13 @@ MonoBehaviour:
   - {fileID: 2043466372}
   - {fileID: 460581850}
   splashStrength: 1.2
+  floors:
+  - {fileID: 1260667260}
+  - {fileID: 1591731270}
+  surfaceY: -164.46999
+  floorMask:
+    serializedVersion: 2
+    m_Bits: 4294183383
 --- !u!1 &679770363
 GameObject:
   m_ObjectHideFlags: 0
@@ -495566,6 +495604,14 @@ MonoBehaviour:
   - {fileID: 1127983267}
   - {fileID: 1287732098}
   splashStrength: 1.2
+  floors:
+  - {fileID: 1048712612}
+  - {fileID: 1277327135}
+  - {fileID: 49569279}
+  surfaceY: -162.45
+  floorMask:
+    serializedVersion: 2
+    m_Bits: 4294183383
 --- !u!1 &743331871
 GameObject:
   m_ObjectHideFlags: 0
@@ -579230,6 +579276,11 @@ MonoBehaviour:
   fx: {fileID: 0}
   areas: []
   splashStrength: 1.2
+  floors: []
+  surfaceY: 0
+  floorMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
 --- !u!114 &853306940
 MonoBehaviour:
   m_ObjectHideFlags: 2
@@ -724850,6 +724901,13 @@ MonoBehaviour:
   - {fileID: 2108107417}
   - {fileID: 1516811378}
   splashStrength: 1.2
+  floors:
+  - {fileID: 1338381987}
+  - {fileID: 2049941215}
+  surfaceY: -164.46999
+  floorMask:
+    serializedVersion: 2
+    m_Bits: 4294183383
 --- !u!1 &1072658960
 GameObject:
   m_ObjectHideFlags: 0
