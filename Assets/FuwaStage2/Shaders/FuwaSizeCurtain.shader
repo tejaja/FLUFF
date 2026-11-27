@@ -15,6 +15,9 @@ Shader "Fuwa/SizeCurtain"
         _FarFadeStart ("遠くでうすく：はじまり（m、0＝なし）", Float) = 0
         _FarFadeEnd ("遠くでうすく：おわり（m）", Float) = 0
         _FarFadeMin ("遠くでうすく：おわりの濃さ", Range(0, 1)) = 0
+        // 2026-11-27 てじゃ「カーテンもバリアとかクモの巣みたいな近くで見えなくなる処理ほしい」：クモの巣（_FadeNear 0.45 / _FadeFar 1）と同じ
+        _FadeNear ("カメラから：これより近いと見えない (m)", Float) = 0.45
+        _FadeFar ("カメラから：ここまででふつうの濃さ (m)", Float) = 1
     }
     SubShader
     {
@@ -28,7 +31,7 @@ Shader "Fuwa/SizeCurtain"
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
             #include "UnityCG.cginc"
-            half4 _Color; float _Mode, _Freq, _Speed, _Arms; half _Alpha; float _FarFadeStart, _FarFadeEnd, _FarFadeMin;
+            half4 _Color; float _Mode, _Freq, _Speed, _Arms; half _Alpha; float _FarFadeStart, _FarFadeEnd, _FarFadeMin, _FadeNear, _FadeFar;
             UNITY_INSTANCING_BUFFER_START(Props)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _EmissionColor)
             UNITY_INSTANCING_BUFFER_END(Props)
@@ -71,7 +74,10 @@ Shader "Fuwa/SizeCurtain"
                 half3 col = _Color.rgb * (0.7 + 0.8 * band + flash) + band * 0.35;
                 a = saturate(a);
                 // 2026-11-15 遠くのカーテンはうすく（てじゃ「奥のやつが見えすぎてる、重なる時」）
-                if (_FarFadeEnd > _FarFadeStart) a *= lerp(1, _FarFadeMin, smoothstep(_FarFadeStart, _FarFadeEnd, distance(i.wpos, _WorldSpaceCameraPos)));
+                float camD = distance(i.wpos, _WorldSpaceCameraPos);
+                if (_FarFadeEnd > _FarFadeStart) a *= lerp(1, _FarFadeMin, smoothstep(_FarFadeStart, _FarFadeEnd, camD));
+                // 近くは見えない（くぐる時に視界をふさがない）
+                a *= smoothstep(_FadeNear, max(_FadeFar, _FadeNear + 0.01), camD);
                 half4 o = half4(col * a, a * 0.85);
                 UNITY_APPLY_FOG_COLOR(i.fogCoord, o, half4(0, 0, 0, 0));
                 return o;
