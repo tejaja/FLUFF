@@ -2034,7 +2034,7 @@ public static class FuwaPlaygroundBuilder
                 st.effects = new[] { tw };
                 st.effectColliders = tw.GetComponents<Collider>();
                 st.effectParticles = tw.GetComponentsInChildren<ParticleSystem>(true);
-                if (ts != null) { var tub = UdonSharpEditorUtility.GetBackingUdonBehaviour(ts); if (tub != null) { tub.SyncMethod = VRC.SDKBase.Networking.SyncType.Manual; EditorUtility.SetDirty(tub); } }
+                if (ts != null) { var tub = UdonSharpEditorUtility.GetBackingUdonBehaviour(ts); if (tub != null) { tub.SyncMethod = VRC.SDKBase.Networking.SyncType.Continuous; EditorUtility.SetDirty(tub); } }
             }
             else
             {
@@ -2053,7 +2053,7 @@ public static class FuwaPlaygroundBuilder
                 st.onSound = Copy(fan.toggleSound, "SeedOnSfx"); st.offSound = Copy(fan.offSound, "SeedOffSfx");
             }
             UdonSharpEditorUtility.CopyProxyToUdon(st);
-            var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(st); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Manual; EditorUtility.SetDirty(ub); }
+            var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(st); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Continuous; EditorUtility.SetDirty(ub); }   // VRCObjectSync と同じ物なので Continuous
             EditorUtility.SetDirty(st);
         }
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());

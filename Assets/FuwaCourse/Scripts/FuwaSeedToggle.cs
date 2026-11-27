@@ -6,7 +6,8 @@ using VRC.SDKBase;
 //  オフ時は球の周囲に球近い色のオーラ、オンでエフェクトが展開されるとオーラは消える。オーラもエフェクトも出し入れ時にフェード」）
 // たね本体（VRCPickup・VRCObjectSync）につける。持ってトリガー（Use）でオン/オフ（みんなに同期）。
 // 効果（竜巻・重い球）は大きさ 0→1 で広がり、粒の出る量も合わせる。当たりは半分以上広がってから入る。オーラは逆にうすくなって消える
-[UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
+// たね本体には VRCObjectSync があるので Manual は置けない（ビルドで「Object Sync cannot share an object with a manually synchronized Udon Behaviour」）→ Continuous
+[UdonBehaviourSyncMode(BehaviourSyncMode.Continuous)]
 public class FuwaSeedToggle : UdonSharpBehaviour
 {
     [Tooltip("広げる・しまう物（大きさ 0→元 で広がる）")]
