@@ -812,7 +812,7 @@ public static class FuwaPlaygroundBuilder
     {
         var heldMat = Object.FindObjectsOfType<FuwaThrowRock>(true).First().heldMaterial;
         EnsureProgram("FuwaMovableMushroom");
-        foreach (var (slotName, label) in new[] { ("Unlock6", "かい"), ("Unlock7", "ようがん"), ("Unlock8", "こおり"), ("Unlock9", "はぐるま") })
+        foreach (var (slotName, label) in new[] { ("Unlock6", "かい"), ("Unlock7", "ようがん"), ("Unlock8", "こおりのたね"), ("Unlock9", "はぐるま") })
         {
             var slot = toys.Find(slotName); if (slot == null) continue;
             var oldGrab = slot.Find("Grab"); var body = slot.Find("Body");
@@ -1405,7 +1405,7 @@ public static class FuwaPlaygroundBuilder
         it.disc = disc.transform; it.discCollider = mc; it.discRadius = IceToyR;
         it.crystal = toy.transform; it.crystalCollider = box;   // 氷が出ている間は結晶を小さく・当たりなし（2026-11-27）
         UdonSharpEditorUtility.CopyProxyToUdon(it);
-        { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(it); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Manual; ub.interactText = "こおり"; EditorUtility.SetDirty(ub); } }
+        { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(it); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Manual; ub.interactText = "こおりのたね"; EditorUtility.SetDirty(ub); } }
         // 人が滑る：コース2–3 の IceSkate を写して、氷＝この円だけ
         var sk = Object.Instantiate(iceSrc.gameObject, slot, false); sk.name = "IceSkate"; sk.transform.localPosition = Vector3.zero;
         var skc = sk.GetComponent<FuwaIceSkate>(); skc.ice = new Collider[] { mc }; skc.debugLog = false; UdonSharpEditorUtility.CopyProxyToUdon(skc);
