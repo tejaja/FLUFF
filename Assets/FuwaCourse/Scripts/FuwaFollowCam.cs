@@ -606,7 +606,8 @@ public class FuwaFollowCam : UdonSharpBehaviour
         ShowStage2Lobby(tSolo && !tSeen && tStage == 2);
         // 2026-11-28 てじゃ「ステージ1からおっかけカメラでステージ2の人を見ると、カメラの中にステージ1の島やコースの影が落ちる」：
         //  ステージ2はステージ1の真下で太陽は真上から。影はカメラごとに分けられないので、カメラが描く間だけ太陽の影を切る（自分の画面の影は変わらない）
-        _camNoShadow = tSolo && !tSeen && tStage == 2;
+        //  あそびばから見る時は落ちない（てじゃ 2026-11-28「あそびばは影響ないかも」）ので切らない
+        _camNoShadow = tSolo && !tSeen && tStage == 2 && MyArea() != playgroundArea;
         ShowPlayground(who != lp && ghost != null && ghost.GetArea() == playgroundArea && MyArea() != playgroundArea);
         ShowHub(who != lp && ghost != null && ghost.GetArea() == hubArea && MyArea() != hubArea);
         UpdateShadowOverrides();
