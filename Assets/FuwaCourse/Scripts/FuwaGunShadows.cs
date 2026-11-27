@@ -35,6 +35,10 @@ public class FuwaGunShadows : UdonSharpBehaviour
     private bool _depthOn;
     private Material[] _mats;
     private float[] _alpha;
+    [Header("地面のシェーダーで描く（FuwaPlayerBlob.cginc、PCだけ）")]
+    // 2026-11-28 てじゃ：箱のデカールをやめ、地面のシェーダーが自分で暗くする（アバターに乗らない・段差で欠けない）。自分の銃1つだけ（onlyMine）
+    public bool receiver = true;
+    private int _idGB = -1, _idGQ = -1;
 
     private void Start()
     {
@@ -101,9 +105,17 @@ public class FuwaGunShadows : UdonSharpBehaviour
         }
         return;
 #endif
+        if (receiver && _idGB < 0)
+        {
+            _idGB = VRCShader.PropertyToID("_UdonFuwaGB");
+            _idGQ = VRCShader.PropertyToID("_UdonFuwaGQ");
+            for (int i = 0; i < shadows.Length; i++) if (shadows[i] != null) shadows[i].enabled = false;
+        }
+        bool gotRecv = false;
         int used = 0;
         for (int i = 0; i < _count && used < shadows.Length; i++)
         {
+            if (receiver && gotRecv) break;
             FuwaBlower b = _blowers[i];
             if (b == null || !Utilities.IsValid(b) || !b.IsGunShown()) continue;
             if (onlyMine && !Networking.IsOwner(b.gameObject)) continue;   // 2026-11-21 てじゃ「銃のウソ影、そもそも他人のはなしでもいいかも」（複数人の軽量化）
@@ -135,6 +147,14 @@ public class FuwaGunShadows : UdonSharpBehaviour
             Vector3 fwd = v.forward; fwd.y = 0f;
             if (fwd.sqrMagnitude < 0.0001f) { fwd = v.up; fwd.y = 0f; }
             if (fwd.sqrMagnitude < 0.0001f) fwd = Vector3.forward;
+            if (receiver)
+            {
+                fwd.Normalize();
+                VRCShader.SetGlobalVector(_idGB, new Vector4(hit.point.x, hit.point.y, hit.point.z, size.x * s * 0.5f));
+                VRCShader.SetGlobalVector(_idGQ, new Vector4(fwd.x, fwd.z, size.y / Mathf.Max(0.01f, size.x), alpha * (1f - h)));
+                gotRecv = true;
+                continue;
+            }
             Transform t = r.transform;
             t.SetPositionAndRotation(hit.point + Vector3.up * ((above - below) * 0.5f), Quaternion.LookRotation(fwd.normalized, Vector3.up));
             t.localScale = new Vector3(size.x * s, above + below, size.y * s);
@@ -142,6 +162,11 @@ public class FuwaGunShadows : UdonSharpBehaviour
             if (_mats[used] != null && Mathf.Abs(a - _alpha[used]) > 0.01f) { _alpha[used] = a; _mats[used].SetFloat("_Alpha", a); }
             if (!r.enabled) r.enabled = true;
             used++;
+        }
+        if (receiver)
+        {
+            if (!gotRecv) VRCShader.SetGlobalVector(_idGQ, Vector4.zero);
+            return;
         }
         for (int i = used; i < shadows.Length; i++)
             if (shadows[i] != null && shadows[i].enabled) shadows[i].enabled = false;

@@ -1,5 +1,6 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
+using VRC.SDKBase;
 
 // ふわふわの足元の影（本物の影の代わり）。真下に線を飛ばして、当たった地面にぼかした丸を描く。
 // 本物の影と違って洞窟の中（日なたじゃない所）でも出るので、位置がわかる。高いほど少し大きく薄く。
@@ -25,23 +26,42 @@ public class FuwaGroundMarker : UdonSharpBehaviour
     public float decalBelow = 0.35f;
     public float decalAbove = 0.06f;
 
+    [Header("地面のシェーダーで描く（FuwaPlayerBlob.cginc、PCだけ）")]
+    // 2026-11-28 てじゃ「ふわふわもこれつかうのはよくない？」：箱のデカールをやめ、地面のシェーダーが自分で暗くする。スマホ・Quest は箱のまま
+    public bool receiver = true;
+    private bool _recv;
+    private int _idLB, _idLQ;
+
     private Material _mat;
     private float _shownAlpha = -1f;
 
     private void Start()
     {
         if (marker != null) _mat = marker.material;
+        _recv = receiver;
+#if UNITY_ANDROID || UNITY_IOS
+        _recv = false;
+#endif
+        if (_recv)
+        {
+            _idLB = VRCShader.PropertyToID("_UdonFuwaLB");
+            _idLQ = VRCShader.PropertyToID("_UdonFuwaLQ");
+            if (marker != null) marker.enabled = false;
+            VRCShader.SetGlobalVector(_idLQ, Vector4.zero);
+        }
     }
+
+    private void HideRecv() { VRCShader.SetGlobalVector(_idLQ, Vector4.zero); }
 
     private void LateUpdate()
     {
         if (ball == null || marker == null) return;
-        if (ball.IsHidden() || !ball.gameObject.activeInHierarchy) { if (marker.enabled) marker.enabled = false; return; }
+        if (ball.IsHidden() || !ball.gameObject.activeInHierarchy) { if (_recv) HideRecv(); else if (marker.enabled) marker.enabled = false; return; }
         Vector3 p = ball.transform.position;
         RaycastHit hit;
         if (!Physics.Raycast(p, Vector3.down, out hit, maxDistance, groundMask, QueryTriggerInteraction.Ignore))
         {
-            if (marker.enabled) marker.enabled = false;
+            if (_recv) HideRecv(); else if (marker.enabled) marker.enabled = false;
             return;
         }
         // 2026-11-17 てじゃ「ふわふわの偽影、サイズかわっても一定になってる」→ ふわふわの大きさに合わせる（みんなのふわふわの影と同じやり方）
@@ -49,6 +69,12 @@ public class FuwaGroundMarker : UdonSharpBehaviour
         float h = Mathf.Clamp01(hit.distance / Mathf.Max(0.01f, farHeight * Mathf.Max(1f, k)));
         float size = Mathf.Lerp(nearSize, farSize, h) * k;
         float a = Mathf.Lerp(nearAlpha, farAlpha, h);
+        if (_recv)
+        {
+            VRCShader.SetGlobalVector(_idLB, new Vector4(hit.point.x, hit.point.y, hit.point.z, size * 0.5f));
+            VRCShader.SetGlobalVector(_idLQ, new Vector4(0f, 1f, 1f, a));
+            return;
+        }
         Transform t = marker.transform;
         if (decal)
         {

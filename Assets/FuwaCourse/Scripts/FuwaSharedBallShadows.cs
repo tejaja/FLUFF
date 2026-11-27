@@ -1,5 +1,6 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
+using VRC.SDKBase;
 
 // 同期ふわふわ（FuwaSharedBall）の足元のウソ影。コースのふわふわの影（FuwaGroundMarker）と同じ決まりで、1つのスクリプトでまとめて動かす
 // （2026-10-13 てじゃ「同期フワフワの影がみえない」）。真下に線を飛ばして、当たった地面にデカール（FuwaCourse/BlobDecal の箱）でぼかした丸を描く。
@@ -21,6 +22,16 @@ public class FuwaSharedBallShadows : UdonSharpBehaviour
     public float decalBelow = 0.35f;
     public float decalAbove = 0.06f;
     public float baseBallSize = 0.3f;
+    [Header("地面のシェーダーで描く（FuwaPlayerBlob.cginc、PCだけ）")]
+    // 2026-11-28 てじゃ「ふわふわもこれつかうのはよくない？」：箱のデカール（深度頼み）をやめ、地面のシェーダーが自分で暗くする（アバターに乗らない・段差で欠けない）。
+    //  スマホ・Quest は今までの箱（BlobDecal の深度なし版）のまま
+    public bool receiver = true;
+    public float receiverUpTol = 0.2f;
+    public float receiverDownTol = 0.5f;
+    private Vector4[] _bb = new Vector4[16];
+    private Vector4[] _bq = new Vector4[16];
+    private int _idBB, _idBQ, _idBBCount;
+    private bool _recv;
 
     private Material[] _mats;
     private float[] _shownAlpha;
@@ -31,13 +42,57 @@ public class FuwaSharedBallShadows : UdonSharpBehaviour
         _mats = new Material[n];
         _shownAlpha = new float[n];
         for (int i = 0; i < n; i++) { if (markers[i] != null) _mats[i] = markers[i].material; _shownAlpha[i] = -1f; }
+        _recv = receiver;
+#if UNITY_ANDROID || UNITY_IOS
+        _recv = false;
+#endif
+        if (_recv)
+        {
+            _idBB = VRCShader.PropertyToID("_UdonFuwaBB");
+            _idBQ = VRCShader.PropertyToID("_UdonFuwaBQ");
+            _idBBCount = VRCShader.PropertyToID("_UdonFuwaBBCount");
+            Material m0 = n > 0 && markers[0] != null ? markers[0].sharedMaterial : null;
+            Color col = m0 != null ? m0.GetColor("_Color") : new Color(0.12f, 0.08f, 0.2f, 1f);
+            float fs = m0 != null ? m0.GetFloat("_FalloffStart") : 0.35f, pw = m0 != null ? m0.GetFloat("_Power") : 1f;
+            VRCShader.SetGlobalColor(VRCShader.PropertyToID("_UdonFuwaBBColor"), col);
+            VRCShader.SetGlobalVector(VRCShader.PropertyToID("_UdonFuwaBBParam"), new Vector4(fs, pw, receiverUpTol, receiverDownTol));
+            for (int i = 0; i < n; i++) if (markers[i] != null) markers[i].enabled = false;
+            VRCShader.SetGlobalVectorArray(_idBB, _bb);
+            VRCShader.SetGlobalVectorArray(_idBQ, _bq);
+            VRCShader.SetGlobalFloat(_idBBCount, 0f);
+        }
     }
 
     private void LateUpdate()
     {
         if (balls == null || markers == null || _mats == null) return;
         int n = Mathf.Min(balls.Length, markers.Length);
+        if (_recv)
+        {
+            int c = 0;
+            for (int i = 0; i < balls.Length && c < 16; i++) if (UpdateRecv(i, c)) c++;
+            VRCShader.SetGlobalVectorArray(_idBB, _bb);
+            VRCShader.SetGlobalVectorArray(_idBQ, _bq);
+            VRCShader.SetGlobalFloat(_idBBCount, c);
+            return;
+        }
         for (int i = 0; i < n; i++) UpdateOne(i);
+    }
+
+    private bool UpdateRecv(int i, int slot)
+    {
+        FuwaSharedBall b = balls[i];
+        if (b == null || !b.gameObject.activeInHierarchy || !b.IsFlying()) return false;
+        Vector3 p = b.transform.position;
+        RaycastHit hit;
+        if (!Physics.Raycast(p, Vector3.down, out hit, maxDistance, groundMask, QueryTriggerInteraction.Ignore)) return false;
+        float k = b.transform.lossyScale.x / Mathf.Max(0.01f, baseBallSize);
+        float h = Mathf.Clamp01(hit.distance / Mathf.Max(0.01f, farHeight * Mathf.Max(1f, k)));
+        float size = Mathf.Lerp(nearSize, farSize, h) * k;
+        float a = Mathf.Lerp(nearAlpha, farAlpha, h);
+        _bb[slot] = new Vector4(hit.point.x, hit.point.y, hit.point.z, size * 0.5f);
+        _bq[slot] = new Vector4(0f, 1f, 1f, a);
+        return true;
     }
 
     private void UpdateOne(int i)

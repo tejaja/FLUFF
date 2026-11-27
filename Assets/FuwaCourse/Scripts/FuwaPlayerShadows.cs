@@ -58,7 +58,7 @@ public class FuwaPlayerShadows : UdonSharpBehaviour
     private Material[] _mats;
     private float[] _alpha;
     private Vector4[] _pb = new Vector4[16];
-    private float[] _pba = new float[16];
+    private Vector4[] _pq = new Vector4[16];
     private float[] _pbDist = new float[16];
     private int _idPB, _idPBA, _idPBCount;
 
@@ -81,7 +81,7 @@ public class FuwaPlayerShadows : UdonSharpBehaviour
         if (receiver)
         {
             _idPB = VRCShader.PropertyToID("_UdonFuwaPB");
-            _idPBA = VRCShader.PropertyToID("_UdonFuwaPBA");
+            _idPBA = VRCShader.PropertyToID("_UdonFuwaPQ");
             _idPBCount = VRCShader.PropertyToID("_UdonFuwaPBCount");
             // 色・ぼかしは今までの箱の材質（BlobDecal）から
             Color col = new Color(0.12f, 0.08f, 0.2f, 1f); float fs = 0.35f, pw = 1f;
@@ -90,7 +90,7 @@ public class FuwaPlayerShadows : UdonSharpBehaviour
             VRCShader.SetGlobalColor(VRCShader.PropertyToID("_UdonFuwaPBColor"), col);
             VRCShader.SetGlobalVector(VRCShader.PropertyToID("_UdonFuwaPBParam"), new Vector4(fs, pw, receiverUpTol, receiverDownTol));
             VRCShader.SetGlobalVectorArray(_idPB, _pb);
-            VRCShader.SetGlobalFloatArray(_idPBA, _pba);
+            VRCShader.SetGlobalVectorArray(_idPBA, _pq);
             VRCShader.SetGlobalFloat(_idPBCount, 0f);
         }
 #if UNITY_ANDROID || UNITY_IOS
@@ -197,11 +197,11 @@ public class FuwaPlayerShadows : UdonSharpBehaviour
             }
             else n++;
             _pb[slot] = new Vector4(hit.point.x, hit.point.y, hit.point.z, size * 0.5f);
-            _pba[slot] = a;
+            _pq[slot] = new Vector4(0f, 1f, 1f, a);
             _pbDist[slot] = dd;
         }
         VRCShader.SetGlobalVectorArray(_idPB, _pb);
-        VRCShader.SetGlobalFloatArray(_idPBA, _pba);
+        VRCShader.SetGlobalVectorArray(_idPBA, _pq);
         VRCShader.SetGlobalFloat(_idPBCount, n);
     }
 }
