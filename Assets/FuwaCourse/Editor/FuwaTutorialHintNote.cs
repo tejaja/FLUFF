@@ -52,7 +52,11 @@ public static class FuwaTutorialHintNote
         Undo.RecordObject(ht, "hint note");
 
         // 元の位置・向き（初めての時に覚える。2回目以降はそこから計算）
-        var basePos = ht.Find("NoteBase");
+        // 名前に元の値を入れているので Find("NoteBase") では見つからない → 先頭が NoteBase| の子。いちばん最初に作った物（＝本当の元の位置）を使い、ほかは消す
+        //  （2026-11-27 前は毎回新しく作っていて、押すたびにずれ・傾きがたまっていた）
+        Transform basePos = null;
+        foreach (Transform c in ht) if (c.name.StartsWith("NoteBase|")) { if (basePos == null) basePos = c; }
+        foreach (var c in ht.Cast<Transform>().Where(c => c.name.StartsWith("NoteBase|") && c != basePos).ToList()) Undo.DestroyObjectImmediate(c.gameObject);
         if (basePos == null)
         {
             basePos = new GameObject("NoteBase").transform; Undo.RegisterCreatedObjectUndo(basePos.gameObject, "hint note");
