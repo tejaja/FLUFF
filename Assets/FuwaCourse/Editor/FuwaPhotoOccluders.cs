@@ -40,6 +40,21 @@ public static class FuwaPhotoOccluders
             var b = r.bounds; if (b.size.sqrMagnitude < 0.04f) continue;
             C.Add(b.center); R.Add(Mathf.Max(b.extents.x, b.extents.y, b.extents.z) * 0.9f); W.Add(WebWeight);
         }
+        // 2026-11-27 2–5 の大きさのカーテン（当たりなし）。てじゃ「カーテンがかぶりすぎ」。平らな板なので、長い方に沿って球を並べる
+        int beforeCurtain = C.Count;
+        foreach (var r in Object.FindObjectsOfType<MeshRenderer>(true))
+        {
+            if (!r.gameObject.activeInHierarchy || !r.enabled || r.sharedMaterial == null || r.sharedMaterial.shader.name != "Fuwa/SizeCurtain") continue;
+            var b = r.bounds;
+            Vector3 right = r.transform.right; float w = r.transform.lossyScale.x, h = r.transform.lossyScale.y;
+            float rad = Mathf.Max(0.5f, Mathf.Min(w, h) * 0.5f);
+            int n = Mathf.Max(1, Mathf.CeilToInt(w / (rad * 1.4f)));
+            for (int i = 0; i < n; i++)
+            {
+                float t = n == 1 ? 0f : (i / (float)(n - 1) - 0.5f) * (w - rad);
+                C.Add(b.center + right * t); R.Add(rad); W.Add(1f);
+            }
+        }
         Undo.RecordObject(album, "photo occluders");
         album.occluderCenters = C.ToArray(); album.occluderRadii = R.ToArray(); album.occluderWeights = W.ToArray();
         UdonSharpEditorUtility.CopyProxyToUdon(album); EditorUtility.SetDirty(album);

@@ -355,6 +355,8 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
         Vector3 ball = _ball.transform.position;
         bool placed;
         if (point.fixedCam) placed = false;   // camPose から（下の「どこも置けない時」と同じ）
+        // 2026-11-27 てじゃ「上段：近・右ななめ俯瞰ぎみ｜中・左ななめ上｜遠、下段：近・左ななめ水平寄り｜中・右横｜遠」→ 構図はボードの枠で決める（撮るタイミングはポイントのまま）
+        else if (PlaceForSlot(point, slot, kind, lp, chest, head, eye, ball)) placed = true;
         else if (kind == KindFire) placed = PlaceFireShot(order, chest, head, eye) || PlaceAround(point, order, KindClose, ball, chest);
         else if (kind == KindAvatar) placed = PlaceAvatar(point, lp, chest, head, eye, ball) || PlaceAround(point, order, KindClose, ball, chest);
         else placed = PlaceAround(point, order, kind, ball, chest);
@@ -412,7 +414,65 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
     }
 
     // 遠く・近く：ふわふわの飛んでいく向きを基準に、ポイントごとに違う角度から。後ろの自分も入れば入れる
+    // ボードの枠ごとの構図。0 1 2 が上段、3 4 5 が下段（左から）。右・左は自分（アバター）から見てカメラがどっち側か
+    private bool PlaceForSlot(FuwaPhotoPoint point, int slot, int kind, VRCPlayerApi lp, Vector3 chest, Vector3 head, float eye, Vector3 ball)
+    {
+        if (slot == 2) return PlaceAroundD(point, 0, KindFar, ball, chest, -1f);                  // 遠：横の高い所から景色ごと
+        if (slot == 5) return PlaceAroundD(point, 1, KindClose, ball, chest, farDistance * 0.75f) || PlaceAroundD(point, 0, KindFar, ball, chest, -1f); // 遠：ななめ前の低めから、引いて（置けなければ横の高い所から）
+        if (slot == 0) return PlaceStyle(kind, lp, chest, head, eye, ball, 1f, 40f, 1.8f, 0.75f, 40f);   // 近：右ななめ・ちょい見下ろし
+        if (slot == 3) return PlaceStyle(kind, lp, chest, head, eye, ball, -1f, 35f, 1.7f, 0.05f, 38f);  // 近：左ななめ・水平寄り
+        if (slot == 1) return PlaceStyle(kind, lp, chest, head, eye, ball, -1f, 50f, 3.6f, 1.8f, 44f);   // 中：左ななめ上
+        if (slot == 4) return PlaceStyle(kind, lp, chest, head, eye, ball, 1f, 90f, 3.4f, 0.35f, 44f);   // 中：右横
+        return false;
+    }
+
+    // 自分を中心に、正面から yaw 度・side 側（+1 右／-1 左）・距離 dist・高さ up（m、アバターの大きさで伸び縮み）から撮る。
+    //  撃った瞬間は銃口の先（風）も入るように見る所をそっちへ寄せる。ふわふわが近ければ少しそっちへ向けて一緒に入れる。だめなら角度・距離を少しずつ変え、最後は反対側
+    private bool PlaceStyle(int kind, VRCPlayerApi lp, Vector3 chest, Vector3 head, float eye, Vector3 ball, float side, float yaw, float dist, float up, float fov0)
+    {
+        float s = Mathf.Clamp(eye / 1.3f, 0.5f, 2.5f);
+        Vector3 f = lp.GetRotation() * Vector3.forward; f.y = 0f;
+        if (kind == KindFire && _fireAim.sqrMagnitude > 0.0001f) { f = _fireAim; f.y = 0f; }
+        if (f.sqrMagnitude < 0.0001f) { f = ball - chest; f.y = 0f; }
+        f = f.sqrMagnitude > 0.0001f ? f.normalized : Vector3.forward;
+        Vector3 look = Vector3.Lerp(chest, head, 0.45f);
+        if (kind == KindFire && _fireAim.sqrMagnitude > 0.0001f) look = Vector3.Lerp(look, _fireOrigin + _fireAim.normalized * 1.2f * s, 0.4f);
+        bool ballNear = (ball - chest).magnitude < 4f;
+        // 後ろの方は予備：近め・大きく回りこむ・反対側（柱などで自分が隠れる時。2026-11-27 試し撮りの 2–3 で全部ふさがってふわふわだけになった）
+        float[] dy = { 0f, 15f, -15f, 30f, 0f, -30f, 0f, 15f, 0f, 55f, -45f, 55f, 100f, 100f };
+        float[] dm = { 1f, 1f, 1f, 1f, 0.75f, 1f, 1f, 1f, 0.55f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f };
+        float[] sm = { 1f, 1f, 1f, 1f, 1f, 1f, -1f, -1f, 1f, 1f, 1f, -1f, 1f, -1f };
+        float bestBad = 1e9f; Vector3 bestPos = Vector3.zero, bestDir = Vector3.forward; float bestFov = fov0;
+        for (int k = 0; k < dy.Length; k++)
+        {
+            float a = Mathf.Clamp(yaw + dy[k], 5f, 175f) * side * sm[k];
+            Vector3 d = Quaternion.Euler(0f, a, 0f) * f;
+            Vector3 pos = look + (d * (dist * dm[k]) + Vector3.up * up) * s;
+            if (Physics.CheckSphere(pos, 0.2f, obstacleMask, QueryTriggerInteraction.Ignore)) continue;
+            if (Under(pos)) continue;
+            if (Blocked(pos, head) || Blocked(pos, chest)) continue;
+            Vector3 dC = (look - pos).normalized;
+            Vector3 dir = dC; float fov = fov0;
+            if (ballNear && !Blocked(pos, ball))
+            {
+                Vector3 dB = (ball - pos).normalized;
+                float ang = Vector3.Angle(dB, dC);
+                if (ang < 40f) { dir = (dC * 0.72f + dB * 0.28f).normalized; fov = Mathf.Clamp(ang * 1.15f + fov0 - 6f, fov0, 58f); }
+            }
+            float bad = Occlusion(pos, dir, fov, chest, head);
+            if (bad < OccludeOk) { Aim(pos, dir, fov); return true; }
+            if (bad < bestBad) { bestBad = bad; bestPos = pos; bestDir = dir; bestFov = fov; }
+        }
+        if (bestBad < 1e8f) { Aim(bestPos, bestDir, bestFov); return true; }
+        return false;
+    }
+
     private bool PlaceAround(FuwaPhotoPoint point, int order, int kind, Vector3 ball, Vector3 chest)
+    {
+        return PlaceAroundD(point, order, kind, ball, chest, -1f);
+    }
+
+    private bool PlaceAroundD(FuwaPhotoPoint point, int order, int kind, Vector3 ball, Vector3 chest, float dOverride)
     {
         Rigidbody rb = _ball.GetComponent<Rigidbody>();
         Vector3 fwd = rb != null ? rb.velocity : Vector3.zero;
@@ -451,7 +511,8 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
             // 後ろの2つは光るキノコが手前に入る時の予備：前の上から
             ax = new float[] { 0.9f, 0.9f, 0.55f, 0.55f, 1.2f, 1.2f, 0.25f, 0.25f }; sx = new float[] { 0.5f, -0.5f, 0.85f, -0.85f, 0.35f, -0.35f, 0.15f, -0.15f }; ux = new float[] { 0.08f, 0.08f, 0.3f, 0.3f, 0.2f, 0.2f, 0.75f, 0.75f };
         }
-        if (point.distScale > 0f) d *= point.distScale;
+        if (dOverride > 0f) d = dOverride;
+        else if (point.distScale > 0f) d *= point.distScale;
         bool playerNear = (chest - ball).magnitude < 12f;
         // 当たりのない物（光るキノコ）が手前に入らない位置を先に。どこも入る時は、いちばん入り方が少ない位置
         float bestBad = 1e9f; Vector3 bestPos = Vector3.zero, bestDir = Vector3.forward; float bestFov = 45f;
@@ -459,9 +520,10 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
         {
             Vector3 pos = basePos + (fwd * ax[k] + side * (sx[k] * pref) + Vector3.up * ux[k]) * d;
             if (Physics.CheckSphere(pos, 0.3f, obstacleMask, QueryTriggerInteraction.Ignore)) continue;
+            if (Under(pos)) continue;
             if (Blocked(pos, ball)) continue;
             if (point.clearRadius > 0f && ViewCluttered(pos, ball, point.clearRadius)) continue;
-            Vector3 dB = (ball + fwd * point.lookAhead - pos).normalized;   // lookAhead：ふわふわより先の方へ向ける
+            Vector3 dB = (ball + fwd * (dOverride > 0f ? 0f : point.lookAhead) - pos).normalized;   // lookAhead：ふわふわより先の方へ向ける（下段右の引きは自分とふわふわを入れたいので使わない）
             Vector3 dir = dB;
             float fov = kind == KindFar ? 50f : 45f;
             if (playerNear && !Blocked(pos, chest))
@@ -628,17 +690,30 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
                 bad += size * w;
             }
         }
-        int hits = 0;
+        int hits = 0, bg = 0;
         RaycastHit hit;
         for (int yi = -1; yi <= 1; yi++)
             for (int xi = -2; xi <= 2; xi++)
             {
                 Vector3 d = rot * new Vector3(tanH * 0.4f * xi, tanV * 0.6f * yi, 1f);
                 float len = d.magnitude;
-                if (Physics.Raycast(pos, d / len, out hit, near * len - 0.3f, obstacleMask, QueryTriggerInteraction.Ignore) && hit.normal.y < 0.6f) hits++;
+                if (Physics.Raycast(pos, d / len, out hit, far * len + 2.5f, obstacleMask, QueryTriggerInteraction.Ignore) && hit.normal.y < 0.6f)
+                {
+                    if (hit.distance < near * len - 0.3f) hits++;
+                    else bg++;
+                }
             }
         bad += hits * 0.1f;
+        // 2026-11-27 てじゃ「2–3 は氷の柱が近すぎる」：写す物のすぐ後ろ（2.5m 以内）が壁で、写真の大半が壁になる位置はさける
+        if (bg > 6) bad += (bg - 6) * 0.08f;
         return bad;
+    }
+
+    // カメラが床・島の下（上に地面がある）にいる。島の裏は当たりの裏面なので、上からおろして見る（2026-11-27 試し撮りで岩の中・空だけの写真が出た）
+    private bool Under(Vector3 pos)
+    {
+        RaycastHit hit;
+        return Physics.Raycast(pos + Vector3.up * 4f, Vector3.down, out hit, 3.9f, obstacleMask, QueryTriggerInteraction.Ignore) && hit.normal.y > 0.3f;
     }
 
     private bool Blocked(Vector3 from, Vector3 to)
@@ -647,7 +722,10 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
         float len = d.magnitude - 0.4f;   // 写す物そのもの（ふわふわ・自分の体）には当たらないよう、手前で止める
         if (len <= 0f) return false;
         RaycastHit hit;
-        return Physics.SphereCast(from, 0.1f, d / d.magnitude, out hit, len, obstacleMask, QueryTriggerInteraction.Ignore);
+        Vector3 n = d / d.magnitude;
+        if (Physics.SphereCast(from, 0.1f, n, out hit, len, obstacleMask, QueryTriggerInteraction.Ignore)) return true;
+        // 2026-11-27 逆向きも（カメラが岩などの中にいると、中からの線は内側の面に当たらない。試し撮りで 2–1 の岩の中から撮っていた）
+        return Physics.Raycast(to - n * 0.4f, -n, len, obstacleMask, QueryTriggerInteraction.Ignore);
     }
 
     // 額縁（ロビーのボード・ゴールの板）のうち、VRChatカメラが近くで向いている写真の番号。なければ -1
