@@ -63,6 +63,7 @@ public class FuwaMovableMushroom : UdonSharpBehaviour
 
     private Vector3 _lastPos = new Vector3(0f, -9999f, 0f);
     private float _lastYaw;
+    private float _nextForce;
 
     // 持たれている間は、傘の当たり・ジャンプ台・イバラの判定を切る（全員の画面で）。
     // 乗ったまま持つと、持ち上げた傘に押し上げられて手も上がり、どんどん上へ飛んでいった（2026-10-13 てじゃ）
@@ -164,8 +165,13 @@ public class FuwaMovableMushroom : UdonSharpBehaviour
         Vector3 p = transform.position;
         float yaw = transform.eulerAngles.y;
         // 動いていない時は当たり判定を動かさない（止まっている当たり判定を毎フレーム動かすと重い）
-        if ((p - _lastPos).sqrMagnitude < 0.000001f && Mathf.Abs(Mathf.DeltaAngle(yaw, _lastYaw)) < 0.05f) return;
+        // 2026-11-28 てじゃ「動かしてあった所に後から入った人には、持つ判定だけあって見た目が正しい所にない」：
+        //  見逃した時のために、止まっていても1秒に1回は合わせ直す（body が持つところとずれていたら）
+        bool force = Time.time >= _nextForce;
+        if (force) _nextForce = Time.time + 1f;
+        if (!force && (p - _lastPos).sqrMagnitude < 0.000001f && Mathf.Abs(Mathf.DeltaAngle(yaw, _lastYaw)) < 0.05f) return;
         _lastPos = p; _lastYaw = yaw;
+        if (force && (body.position - (p - Vector3.up * pivotUp)).sqrMagnitude < 0.0001f && Mathf.Abs(Mathf.DeltaAngle(body.eulerAngles.y, yaw)) < 0.05f) return;
         body.SetPositionAndRotation(p - Vector3.up * pivotUp, Quaternion.Euler(0f, yaw, 0f));
     }
 }
