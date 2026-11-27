@@ -725,7 +725,22 @@ public class FuwaBlower : UdonSharpBehaviour
                     Vector3 vp2 = hp + head * _headLocal; Vector3 shift = vp2 - vp;
                     vp = vp2; np += shift;
                 }
-                else _headLocalOk = false;
+                else
+                {
+                    _headLocalOk = false;
+                    // 2026-11-28 てじゃ「デスクトップどうしで、相手が走ると銃が手から離れてぬるっとついてくる」：
+                    //  ほかの人が持っている銃の位置は VRChat の持ち物の同期（遅れてなめらかに追う）で、アバターの手とずれる
+                    //  → 見た目だけ、持っている人の手のひら（手と中指の付け根のボーン）に握る所を合わせる
+                    bool lh = _pickup != null && _pickup.currentHand == VRC_Pickup.PickupHand.Left;
+                    Vector3 hb2 = holder.GetBonePosition(lh ? HumanBodyBones.LeftHand : HumanBodyBones.RightHand);
+                    if (hb2.sqrMagnitude > 0.0001f)
+                    {
+                        Vector3 fb2 = holder.GetBonePosition(lh ? HumanBodyBones.LeftMiddleProximal : HumanBodyBones.RightMiddleProximal);
+                        Vector3 palm2 = fb2.sqrMagnitude > 0.0001f ? Vector3.Lerp(hb2, fb2, 0.7f) : hb2;
+                        Vector3 move = palm2 - pivot;
+                        if (move.sqrMagnitude < 4f) { vp += move; np += move; }   // 2m 以上ずれている時（ボーンがおかしい）は動かさない
+                    }
+                }
                 if (nozzle != null) nozzle.SetPositionAndRotation(np, d * nozzle.rotation);
                 vt.SetPositionAndRotation(vp, head);
                 _aligned = true;
