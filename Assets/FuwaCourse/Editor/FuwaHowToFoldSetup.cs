@@ -17,7 +17,8 @@ public static class FuwaHowToFoldSetup
     // 2026-11-27 てじゃ「展開前のボードとボタンの仕組みが違うのが問題」「ボードの白い部分をベージュ、ハイライトを白に」：
     //  たたんだ帯を、隣のボタンと同じUIのボタン（Fuwa/UIGradient）で作る。オレンジのふち（Button の画像）＋ベージュの中身（Inner、色の変化はこっち）。
     //  たたんだ時は板（Panel・Border）を消す（FuwaHowToFold.hidePanelWhenClosed）。大きさ・丸みは たたんだ板とふちにそろえる
-    public static readonly Color Beige = new Color(1f, 0.976f, 0.91f, 0.92f);   // クリーム色（2026-11-27 ベージュ (1,.953,.878)「見た目わるい」→ 白 → てじゃ「もちょいクリーム色っぽく」）
+    public static readonly Color Beige = new Color(1f, 0.98f, 0.96f, 0.92f);   // 板の色＝元の白（2026-11-27 ベージュ「見た目わるい」→ クリーム → てじゃ「逆のほうがいい」＝ふだん白・当てるとクリーム）
+    public static readonly Color Cream = new Color(1f, 0.976f, 0.91f, 1f);
     public static readonly Color BorderCol = new Color(1f, 0.549f, 0.42f, 1f);
 
     [MenuItem("FuwaCourse/済み（押す前に相談）/ロビーのあそびかた：たたんだ帯をUIボタンにする")]
@@ -28,6 +29,43 @@ public static class FuwaHowToFoldSetup
         var fold = h.GetComponent<FuwaHowToFold>(); fold.hidePanelWhenClosed = true; UdonSharpEditorUtility.CopyProxyToUdon(fold); EditorUtility.SetDirty(fold);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(h.gameObject.scene);
         Debug.Log("あそびかた：たたんだ帯をUIボタンにした");
+    }
+
+    // 2026-11-27 てじゃ「あそびかたのタイトルのフォントだけDarumaで」：見出し（FoldTitle）を DarumadropOne に。
+    //  開いた後も FoldTitle を出したまま（keepTitle）、本文の見出し（同じ文字）は透明にして行のあきだけ残す
+    [MenuItem("FuwaCourse/済み（押す前に相談）/ロビーのあそびかた：見出しを Daruma に")]
+    public static void MenuDarumaTitle()
+    {
+        var h = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "HowToPlay" && t.parent != null && t.parent.name == "FuwaLobby");
+        DarumaTitle(h);
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(h.gameObject.scene);
+        Debug.Log("あそびかた：見出しを Daruma にした");
+    }
+
+    public static void DarumaTitle(Transform h)
+    {
+        var title = h.Find("FoldTitle").GetComponent<TMPro.TextMeshPro>();
+        title.font = AssetDatabase.LoadAssetAtPath<TMPro.TMP_FontAsset>("Assets/FuwaCourse/Fonts/DarumadropOne SDF Dyn.asset");
+        title.fontSharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Fonts/DarumadropOne SDF Board.mat");
+        title.fontSize = 1.7f;   // Daruma は字が小さめに見えるので（本文と同じ 1.3 だと小さかった）
+        EditorUtility.SetDirty(title);
+        var body = h.Find("Text").GetComponent<TMPro.TextMeshPro>();
+        string Hide(string s) => s.Replace("<color=#FF6B5C>あそびかた</color>", "<color=#FF6B5C00>あそびかた</color>").Replace("<color=#FF6B5C>How to Play</color>", "<color=#FF6B5C00>How to Play</color>");
+        body.text = Hide(body.text); EditorUtility.SetDirty(body);
+        var lang = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault();
+        if (lang != null)
+        {
+            int i = System.Array.IndexOf(lang.texts, body);
+            if (i >= 0)
+            {
+                var so = new SerializedObject(lang);
+                var pj = so.FindProperty("ja").GetArrayElementAtIndex(i); pj.stringValue = Hide(pj.stringValue);
+                var pe = so.FindProperty("en").GetArrayElementAtIndex(i); pe.stringValue = Hide(pe.stringValue);
+                so.ApplyModifiedPropertiesWithoutUndo(); UdonSharpEditorUtility.CopyProxyToUdon(lang);
+            }
+        }
+        var fold = h.GetComponent<FuwaHowToFold>();
+        if (fold != null) { fold.keepTitle = true; UdonSharpEditorUtility.CopyProxyToUdon(fold); EditorUtility.SetDirty(fold); }
     }
 
     public static void MakeClosedButton(Transform h, GameObject open)
@@ -59,13 +97,13 @@ public static class FuwaHowToFoldSetup
         if (innerT == null) { var g = new GameObject("Inner", typeof(RectTransform), typeof(CanvasRenderer), typeof(UnityEngine.UI.Image)); innerT = g.transform; innerT.SetParent(btn.transform, false); innerT.SetAsFirstSibling(); }
         var irt = (RectTransform)innerT; irt.anchorMin = irt.anchorMax = new Vector2(0.5f, 0.5f); irt.anchoredPosition3D = new Vector3(0f, 0f, -3f) /* ふちと同じ奥行きだとふちに負けるので少し手前 */; irt.sizeDelta = new Vector2(panel.size.x / k, ClosedH / k); irt.localRotation = Quaternion.identity; irt.localScale = Vector3.one;
         var inner = innerT.GetComponent<UnityEngine.UI.Image>();
-        inner.sprite = src.sprite; inner.type = UnityEngine.UI.Image.Type.Sliced; inner.material = src.material; inner.raycastTarget = false; inner.color = Color.white;   // 色は Button の色の変化で（ふつう＝クリーム、当てると白）
+        inner.sprite = src.sprite; inner.type = UnityEngine.UI.Image.Type.Sliced; inner.material = src.material; inner.raycastTarget = false; inner.color = Color.white;   // 色は Button の色の変化で（ふつう＝白、当てるとクリーム）
         inner.pixelsPerUnitMultiplier = spr.border.y / ppuRef / (rIn / k);
-        // ハイライト：中身がクリーム→白（てじゃ「ふちが明るくなるだけだと目立たん」「クリーム色っぽく」）
+        // ハイライト：中身が白→クリーム（てじゃ「ふちが明るくなるだけだと目立たん」→ クリーム→白 →「逆のほうがいい」）
         btn.targetGraphic = inner; btn.transition = UnityEngine.UI.Selectable.Transition.ColorTint;
         var cream = new Color(Beige.r, Beige.g, Beige.b, 1f);   // 下にふちがあるので不透明に
         var cb = btn.colors;
-        cb.normalColor = cream; cb.highlightedColor = Color.white; cb.pressedColor = cream * new Color(0.9f, 0.9f, 0.9f, 1f);
+        cb.normalColor = cream; cb.highlightedColor = Cream; cb.pressedColor = Cream * new Color(0.92f, 0.92f, 0.92f, 1f);
         cb.selectedColor = cream; cb.disabledColor = cream; cb.colorMultiplier = 1f; cb.fadeDuration = 0.1f; btn.colors = cb;
         foreach (var o in new Object[] { open.transform, canvas, bc, frame, inner, btn, irt }) EditorUtility.SetDirty(o);
     }
@@ -225,6 +263,7 @@ public static class FuwaHowToFoldSetup
 
         MakeClosedButton(h, open);
         fold.hidePanelWhenClosed = true;
+        DarumaTitle(h);
         fold.panel = panel; fold.border = border; fold.body = body; fold.title = title; fold.language = lang;
         fold.titleT = title.transform; fold.titleGo = title.gameObject; fold.bodyGo = body.gameObject;
         fold.whenClosed = open; fold.whenOpen = close;

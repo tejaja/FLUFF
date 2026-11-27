@@ -40,6 +40,8 @@ public class FuwaHowToFold : UdonSharpBehaviour
     public float openLower = 0f;
     [Tooltip("たたんだ時は板（panel・border）を消す（たたんだ帯は whenClosed のUIボタンが見た目も兼ねる）")]
     public bool hidePanelWhenClosed = false;
+    [Tooltip("開いた後も見出し（title）を出したままにする（本文の見出しは透明にしておく）。2026-11-27 見出しだけ Daruma のフォントにしたので")]
+    public bool keepTitle = false;
     private float _panelY0, _borderY0;
 
     private float _p;        // 0=たたむ 1=開く
@@ -47,7 +49,7 @@ public class FuwaHowToFold : UdonSharpBehaviour
     private float _panelFull, _borderFull;
     private Color _bodyColor = Color.white;
     private bool _inited;
-    private bool _shownEn;
+    private bool _shownEn, _titleWritten;
     private float _openedAt = -10f;
 
     private void Start() { Init(); Apply(); }
@@ -77,9 +79,10 @@ public class FuwaHowToFold : UdonSharpBehaviour
     {
         Init();
         bool en = language != null && language.IsEnglish();
-        if (title != null && en != _shownEn)
+        // 2026-11-27 最初は必ず書く（Init の時と最初の Update の間に言語が切りかわると、Init の !IsEnglish と一致して書かれず、シーンの日本語のまま残っていた）
+        if (title != null && (en != _shownEn || !_titleWritten))
         {
-            _shownEn = en;
+            _shownEn = en; _titleWritten = true;
             title.text = "<size=150%><color=#FF6B5C>" + (en ? titleEn : titleJa) + "</color></size>";
         }
         // 離れたら閉じる（2026-10-13 てじゃ「離れても閉じるようにしよう」）
@@ -120,7 +123,7 @@ public class FuwaHowToFold : UdonSharpBehaviour
         {
             Vector3 lp = titleT.localPosition;
             titleT.localPosition = new Vector3(lp.x, Mathf.Lerp(titleClosedY, titleOpenY, mv), lp.z);
-            bool showTitle = _p < 1f || Time.time - _openedAt < fadeIn;   // 本文の見出しが出きるまでは重ねておく
+            bool showTitle = keepTitle || _p < 1f || Time.time - _openedAt < fadeIn;   // 本文の見出しが出きるまでは重ねておく
             if (titleGo.activeSelf != showTitle) titleGo.SetActive(showTitle);
         }
         if (body != null)
