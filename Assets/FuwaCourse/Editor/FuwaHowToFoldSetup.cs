@@ -17,7 +17,7 @@ public static class FuwaHowToFoldSetup
     // 2026-11-27 てじゃ「展開前のボードとボタンの仕組みが違うのが問題」「ボードの白い部分をベージュ、ハイライトを白に」：
     //  たたんだ帯を、隣のボタンと同じUIのボタン（Fuwa/UIGradient）で作る。オレンジのふち（Button の画像）＋ベージュの中身（Inner、色の変化はこっち）。
     //  たたんだ時は板（Panel・Border）を消す（FuwaHowToFold.hidePanelWhenClosed）。大きさ・丸みは たたんだ板とふちにそろえる
-    public static readonly Color Beige = new Color(1f, 0.953f, 0.878f, 0.92f);
+    public static readonly Color Beige = new Color(1f, 0.98f, 0.96f, 0.92f);   // 名前は Beige だが元の白（2026-11-27 ベージュを試したら「見た目わるい」で白に戻した）
     public static readonly Color BorderCol = new Color(1f, 0.549f, 0.42f, 1f);
 
     [MenuItem("FuwaCourse/済み（押す前に相談）/ロビーのあそびかた：たたんだ帯をUIボタンにする")]
@@ -52,19 +52,20 @@ public static class FuwaHowToFoldSetup
         float ppuRef = spr.pixelsPerUnit / 100f;   // キャンバスの referencePixelsPerUnit = 100
         // ふち（押す所も兼ねる）
         frame.sprite = src.sprite; frame.type = UnityEngine.UI.Image.Type.Sliced; frame.material = src.material; frame.raycastTarget = true;
-        frame.color = BorderCol;
+        frame.color = Color.white;   // 色は Button の色の変化で（ふつう＝ふちのオレンジ、当てると明るく）
         frame.pixelsPerUnitMultiplier = spr.border.y / ppuRef / (rOut / k);
         // 中身（ベージュ、ハイライトはここ）
         var innerT = btn.transform.Find("Inner");
         if (innerT == null) { var g = new GameObject("Inner", typeof(RectTransform), typeof(CanvasRenderer), typeof(UnityEngine.UI.Image)); innerT = g.transform; innerT.SetParent(btn.transform, false); innerT.SetAsFirstSibling(); }
         var irt = (RectTransform)innerT; irt.anchorMin = irt.anchorMax = new Vector2(0.5f, 0.5f); irt.anchoredPosition3D = new Vector3(0f, 0f, -3f) /* ふちと同じ奥行きだとふちに負けるので少し手前 */; irt.sizeDelta = new Vector2(panel.size.x / k, ClosedH / k); irt.localRotation = Quaternion.identity; irt.localScale = Vector3.one;
         var inner = innerT.GetComponent<UnityEngine.UI.Image>();
-        inner.sprite = src.sprite; inner.type = UnityEngine.UI.Image.Type.Sliced; inner.material = src.material; inner.raycastTarget = false; inner.color = Color.white;
+        inner.sprite = src.sprite; inner.type = UnityEngine.UI.Image.Type.Sliced; inner.material = src.material; inner.raycastTarget = false; inner.color = new Color(Beige.r, Beige.g, Beige.b, 1f);   // 下にふちがあるので不透明に
         inner.pixelsPerUnitMultiplier = spr.border.y / ppuRef / (rIn / k);
-        btn.targetGraphic = inner; btn.transition = UnityEngine.UI.Selectable.Transition.ColorTint;
+        // ハイライトはふち（てじゃ A：白い板の上で白くしても差が出ないので、隣の「あそびば」ボタンと同じくふちが明るくなる）
+        btn.targetGraphic = frame; btn.transition = UnityEngine.UI.Selectable.Transition.ColorTint;
         var cb = btn.colors;
-        cb.normalColor = Beige; cb.highlightedColor = new Color(1f, 1f, 1f, 1f); cb.pressedColor = new Color(Beige.r * 0.9f, Beige.g * 0.9f, Beige.b * 0.9f, 1f);
-        cb.selectedColor = Beige; cb.disabledColor = Beige; cb.colorMultiplier = 1f; cb.fadeDuration = 0.1f; btn.colors = cb;
+        cb.normalColor = BorderCol; cb.highlightedColor = Color.Lerp(BorderCol, Color.white, 0.22f); cb.pressedColor = BorderCol * new Color(0.85f, 0.85f, 0.85f, 1f);
+        cb.selectedColor = BorderCol; cb.disabledColor = BorderCol; cb.colorMultiplier = 1f; cb.fadeDuration = 0.1f; btn.colors = cb;
         foreach (var o in new Object[] { open.transform, canvas, bc, frame, inner, btn, irt }) EditorUtility.SetDirty(o);
     }
 
