@@ -164,6 +164,9 @@ public class FuwaSharedBall : UdonSharpBehaviour
     public Vector3 burnMeshOffset = new Vector3(0f, -0.02f, 0f);
     public AudioSource burnSound;
     public float burnRate = 12f, burnGrace = 3.5f;
+    [Tooltip("炎の見た目がちょうどの大きさになる玉の大きさ（ふつう＝0.3）。これより大きい・小さい玉は炎も同じ倍率で（2026-11-28 てじゃ）")]
+    public float burnRefSize = 0.3f;
+    private Vector3 _burnMeshBase = Vector3.zero;
     public float douseTap = 0.34f, douseHalf = 0.5f;
     [UdonSynced] private double _sBurnAt;
     private float _douse;
@@ -208,6 +211,13 @@ public class FuwaSharedBall : UdonSharpBehaviour
         if (!_charred || _furMat == null) return;
         _furMat.SetColor("_Color", _preColor); _furMat.SetColor("_TipColor", _preTip);
         _charred = false;
+    }
+    // おかたづけ（FuwaPlaygroundSpawner.CleanUp、持ち主にしてから呼ぶ）：飛んでいたらはじける（はじけたらキノコに戻る）
+    public void PopForCleanup()
+    {
+        Init();
+        if (!Networking.IsOwner(gameObject) || _popped || _waiting) return;
+        Pop();
     }
     // 持ち主：止まったあとはじける
     public void CharPop()
@@ -257,8 +267,14 @@ public class FuwaSharedBall : UdonSharpBehaviour
         if (show)
         {
             Vector3 p = transform.position;
-            if (burnFx != null) burnFx.transform.position = p;
-            if (burnMesh != null) burnMesh.transform.position = p + burnMeshOffset;
+            float k = transform.lossyScale.x / Mathf.Max(0.01f, burnRefSize);
+            if (burnFx != null) { burnFx.transform.position = p; burnFx.transform.localScale = Vector3.one * k; }
+            if (burnMesh != null)
+            {
+                if (_burnMeshBase == Vector3.zero) _burnMeshBase = burnMesh.transform.localScale;
+                burnMesh.transform.localScale = _burnMeshBase * k;
+                burnMesh.transform.position = p + burnMeshOffset * k;
+            }
         }
     }
 

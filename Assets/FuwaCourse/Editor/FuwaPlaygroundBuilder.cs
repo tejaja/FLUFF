@@ -2377,11 +2377,11 @@ public static class FuwaPlaygroundBuilder
         string[][] ja = {
             sp.sizeJa.Select(v => "サイズ: " + v).ToArray(), sp.colorJa.Select(v => "カラー: " + v).ToArray(),
             sp.limits.Select(v => "かず: " + v).ToArray(), new[] { "おちたら: きえる", "おちたら: きえない" },
-            new[] { "かお: あり", "かお: なし" }, new[] { "もふもふ: あり", "もふもふ: なし" } };   // 2026-10-16 てじゃ「"け"がわかりづらい、もふもふ とかに」
+            new[] { "おかたづけ" }, new[] { "もふもふ: あり", "もふもふ: なし" } };   // 2026-10-16 てじゃ「"け"がわかりづらい、もふもふ とかに」
         string[][] en = {
             sp.sizeEn.Select(v => "Size: " + v).ToArray(), sp.colorEn.Select(v => "Color: " + v).ToArray(),
             sp.limits.Select(v => "Max: " + v).ToArray(), new[] { "On landing: Pop", "On landing: Stay" },
-            new[] { "Face: On", "Face: Off" }, new[] { "Fur: On", "Fur: Off" } };
+            new[] { "Clean up" }, new[] { "Fur: On", "Fur: Off" } };
         var t = labels[0];
         float maxFs = t.fontSizeMax, avail = t.rectTransform.rect.width - t.margin.x - t.margin.z;
         float W(string s) { t.enableAutoSizing = false; t.fontSize = maxFs; return t.GetPreferredValues(s).x; }
@@ -2420,7 +2420,7 @@ public static class FuwaPlaygroundBuilder
         return BoardSideY[1] + (1 - row) * gap;
     }
 
-    static readonly string[] SwitchEvents = { "NextSize", "NextColor", "NextLimit", "TogglePop", "ToggleFace", "ToggleFur" };
+    static readonly string[] SwitchEvents = { "NextSize", "NextColor", "NextLimit", "TogglePop", "CleanUp", "ToggleFur" };
     static TMPro.TextMeshProUGUI[] PlaceSwitches(Transform panel, Vector3 pc, Quaternion rot, FuwaPlaygroundSpawner sp)
     {
         var labels = new TMPro.TextMeshProUGUI[SwitchEvents.Length];

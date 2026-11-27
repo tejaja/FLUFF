@@ -38670,7 +38670,7 @@ MonoBehaviour:
           m_ObjectArgumentAssemblyTypeName: 
           m_IntArgument: 0
           m_FloatArgument: 0
-          m_StringArgument: ToggleFace
+          m_StringArgument: CleanUp
           m_BoolArgument: 0
         m_CallState: 2
 --- !u!114 &54277274
@@ -256126,14 +256126,14 @@ MonoBehaviour:
   - <space=0.925em>
   - <space=1.907em>
   - <space=0.532em>
-  - <space=1.798em>
+  - 
   - <space=1.076em>
   padEn:
   - <space=0.677em>
   - <space=0.298em>
   - <space=1.704em>
   - <space=0em>
-  - <space=1.395em>
+  - 
   - <space=1.709em>
 --- !u!4 &392731417
 Transform:
@@ -288094,7 +288094,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 
+  m_text: "\u304A\u304B\u305F\u3065\u3051"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 45e96418161faa649baa70dbaed3892f, type: 2}
   m_sharedMaterial: {fileID: 2100000, guid: 334b781415727de4494394325c07fb77, type: 2}
@@ -288128,7 +288128,7 @@ MonoBehaviour:
   m_fontSizeMin: 70
   m_fontSizeMax: 176.99998
   m_fontStyle: 0
-  m_HorizontalAlignment: 1
+  m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0

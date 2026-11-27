@@ -1,4 +1,4 @@
-using TMPro;
+﻿using TMPro;
 using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
@@ -133,6 +133,18 @@ public class FuwaPlaygroundSpawner : UdonSharpBehaviour
     }
     public void TogglePop() { Take(); _popGround = !_popGround; Send(); }
     public void ToggleFace() { Take(); _face = !_face; Send(); }
+    // 2026-11-28 てじゃ「かおON/OFFを消して、あそびばのふわふわ消滅ボタンに」→「おかたづけ」：出ている同期ふわふわを全部はじけさせる（はじけたらいつも通りキノコに戻る）
+    public void CleanUp()
+    {
+        if (balls == null) return;
+        for (int i = 0; i < balls.Length; i++)
+        {
+            FuwaSharedBall b = balls[i];
+            if (b == null || b.IsIdle()) continue;
+            Networking.SetOwner(Networking.LocalPlayer, b.gameObject);
+            b.PopForCleanup();
+        }
+    }
     public void ToggleFur() { _plain = !_plain; _dirty = true; }
 
     private void Take() { if (!Networking.IsOwner(gameObject)) Networking.SetOwner(Networking.LocalPlayer, gameObject); }
@@ -171,7 +183,7 @@ public class FuwaPlaygroundSpawner : UdonSharpBehaviour
         if (limitLabel != null) limitLabel.text = Pad(2, en) + (en ? "Max: " : "かず: ") + V + limits[li] + VE;
         if (popLabel != null) popLabel.text = Pad(3, en) + (en ? ("On landing: " + V + (_popGround ? "Pop" : "Stay") + VE)
                                                  : ("おちたら: " + V + (_popGround ? "きえる" : "きえない") + VE));
-        if (faceLabel != null) faceLabel.text = Pad(4, en) + (en ? "Face: " : "かお: ") + V + (_face ? (en ? "On" : "あり") : (en ? "Off" : "なし")) + VE;
+        if (faceLabel != null) faceLabel.text = Pad(4, en) + (en ? "Clean up" : "おかたづけ");   // 2026-11-28 かお ON/OFF のボタンは「おかたづけ」に（顔はいつもあり）
         // もふもふだけは自分の画面だけの設定（ほかは同期）なので、下に小さく書いておく（2026-10-17 てじゃ「これだけローカル設定だよって分かるように」）。
         // フォントに「画面」の漢字がないのでひらがな
         if (furLabel != null) furLabel.text = "<line-height=45%>" + Pad(5, en) + (en ? "Fur: " : "もふもふ: ") + V + (_plain ? (en ? "Off" : "なし") : (en ? "On" : "あり")) + VE

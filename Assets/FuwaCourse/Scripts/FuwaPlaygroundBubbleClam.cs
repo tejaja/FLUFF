@@ -30,6 +30,8 @@ public class FuwaPlaygroundBubbleClam : UdonSharpBehaviour
     public float holdTime = 3f;
     [Tooltip("包む距離（泡の中心とふわふわの中心）")]
     public float captureRadius = 0.55f;
+    [Tooltip("ふつうの玉の大きさ。これより大きい玉は、包む距離・泡の大きさを同じ倍率で大きく")]
+    public float refBallSize = 0.3f;
     [Tooltip("泡の位置へ寄せる強さ（1/s²）と動きをそろえる強さ（1/s）")]
     public float holdPull = 30f, holdDamp = 6f;
     [Tooltip("割れたあと、また包まれるまで（秒）")]
@@ -123,7 +125,11 @@ public class FuwaPlaygroundBubbleClam : UdonSharpBehaviour
             if (!b.gameObject.activeSelf) b.gameObject.SetActive(true);
             b.position = BubblePos(s, idx, age);
             float grow = Mathf.Clamp01((float)age * 3f);
-            b.localScale = Vector3.one * bubbleSize * (0.4f + 0.6f * grow);
+            // 2026-11-28 てじゃ「泡つつみもふわふわの大きさに」：包んでいる玉がふつう（refBallSize）より大きければ、泡もその倍率に
+            float bk = 1f;
+            if (_held[s] >= 0 && spawner != null && spawner.balls != null && _held[s] < spawner.balls.Length && spawner.balls[_held[s]] != null)
+                bk = Mathf.Max(1f, spawner.balls[_held[s]].transform.lossyScale.x / Mathf.Max(0.01f, refBallSize));
+            b.localScale = Vector3.one * bubbleSize * (0.4f + 0.6f * grow) * bk;
         }
     }
 
@@ -145,7 +151,8 @@ public class FuwaPlaygroundBubbleClam : UdonSharpBehaviour
                 {
                     FuwaSharedBall ball = spawner.balls[i];
                     if (ball == null || !ball.IsFlying() || Time.time < _freeUntil[i] || IsHeldElsewhere(i)) continue;
-                    if ((ball.transform.position - bp).sqrMagnitude < captureRadius * captureRadius) { _held[s] = i; _heldAt[s] = t; if (captureSound != null) { captureSound.transform.position = bp; captureSound.Play(); } break; }
+                    float cr = captureRadius * Mathf.Max(1f, ball.transform.lossyScale.x / Mathf.Max(0.01f, refBallSize));
+                    if ((ball.transform.position - bp).sqrMagnitude < cr * cr) { _held[s] = i; _heldAt[s] = t; if (captureSound != null) { captureSound.transform.position = bp; captureSound.Play(); } break; }
                 }
             }
             int hi = _held[s]; if (hi < 0) continue;
