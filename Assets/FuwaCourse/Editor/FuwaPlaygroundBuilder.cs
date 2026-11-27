@@ -445,7 +445,7 @@ public static class FuwaPlaygroundBuilder
         { var rb = ringT.gameObject.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false; }
         var gate = ringT.gameObject.AddComponent<BoxCollider>(); gate.isTrigger = true; gate.size = new Vector3(1.6f, 1.6f, 0.35f); gate.center = new Vector3(0f, 0f, 0.35f);
         var rpk = ringT.gameObject.AddComponent<VRC.SDK3.Components.VRCPickup>();
-        rpk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; rpk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; rpk.InteractionText = "リング"; rpk.proximity = 2f; rpk.pickupable = true;   // 2026-11-16 てじゃ「ゴールリングがもてなくなってる」→ 持てるように（離すと床に平ら：FuwaPlaygroundRing.OnDrop）
+        rpk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; rpk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; rpk.InteractionText = "リング"; rpk.UseText = ""; rpk.proximity = 2f; rpk.pickupable = true;   // 2026-11-16 てじゃ「ゴールリングがもてなくなってる」→ 持てるように（離すと床に平ら：FuwaPlaygroundRing.OnDrop）
         ringT.gameObject.AddComponent<VRC.SDK3.Components.VRCObjectSync>();
         // 色はコースのゴールリングと同じ（Goal_Ring をそのまま使う。2026-10-12 てじゃ「本物と同じピンクに」）
         var ringM = AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.FindAssets("Goal_Ring t:Material").Select(AssetDatabase.GUIDToAssetPath).First(pp => pp.EndsWith("/Goal_Ring.mat")));
@@ -1899,7 +1899,7 @@ public static class FuwaPlaygroundBuilder
             var rb = rock.AddComponent<Rigidbody>(); rb.mass = 6f; rb.drag = 0.05f; rb.angularDrag = 0.4f; rb.useGravity = true; rb.isKinematic = false;
             rb.interpolation = RigidbodyInterpolation.Interpolate; rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
             var pk = rock.AddComponent<VRC.SDK3.Components.VRCPickup>();
-            pk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.No; pk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; pk.InteractionText = "いわ"; pk.proximity = 2f; pk.ThrowVelocityBoostScale = 1.3f;
+            pk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.No; pk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; pk.InteractionText = "いわ"; pk.UseText = ""; pk.proximity = 2f; pk.ThrowVelocityBoostScale = 1.3f;
             var os = rock.AddComponent<VRC.SDK3.Components.VRCObjectSync>(); os.AllowCollisionOwnershipTransfer = false;
             AudioSource hit = null;
             if (src.hitSound != null) { var h = Object.Instantiate(src.hitSound.gameObject, rock.transform, false); h.name = "HitSound"; h.transform.localPosition = Vector3.zero; hit = h.GetComponent<AudioSource>(); }
