@@ -224,7 +224,12 @@ public class FuwaGhost : UdonSharpBehaviour
             if (i < nw)
             {
                 FuwaWindmill w = syncWindmills[i]; if (w == null) continue;
-                if (have && (w.transform.position - me).sqrMagnitude > gimOverrideMinDist * gimOverrideMinDist) w.SetViewOverride(_gim[i]); else w.ClearViewOverride();
+                if (have && (w.transform.position - me).sqrMagnitude > gimOverrideMinDist * gimOverrideMinDist)
+                {
+                    w.SetViewOverride(_gim[i]);
+                    if (!w.enabled) w.ViewTick(Time.deltaTime);   // ロビーで風車が止まっている間はここから動かす
+                }
+                else w.ClearViewOverride();
             }
             else
             {

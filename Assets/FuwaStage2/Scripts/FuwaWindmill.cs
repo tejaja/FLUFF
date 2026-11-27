@@ -65,6 +65,14 @@ public class FuwaWindmill : UdonSharpBehaviour
         if (!_ovOn) { _ovOn = true; _ovTurn = turn; }
         _ovTarget = Mathf.Clamp(turn, 0f, maxTurn);
     }
+    // 2026-11-28 てじゃ「おっかけカメラで跳ね橋が同期してない」：ロビーにいる間は風車の Update が止まる（FuwaCourseLod の lobbyStopBehaviours）ので、
+    //  止まっている時は FuwaGhost がこれを毎フレーム呼んで動かす
+    public void ViewTick(float dt)
+    {
+        if (!_ovOn) return;
+        _ovTurn = Mathf.MoveTowards(_ovTurn, _ovTarget, Mathf.Max(returnSpeed, Mathf.Abs(_ovTarget - _ovTurn) * 6f) * dt);
+        ApplyTurn(_ovTurn, false);
+    }
     public void ClearViewOverride() { if (!_ovOn) return; _ovOn = false; ApplyTurn(_turn, false); _prevTurnS = _turn; _lastTooth = Mathf.FloorToInt(_turn / 22.5f); }
 
     private void Start() { Apply(); }
@@ -84,8 +92,7 @@ public class FuwaWindmill : UdonSharpBehaviour
         if (_turn >= maxTurn) { _turn = maxTurn; if (_vel > 0f) _vel = 0f; }
         if (_ovOn)
         {
-            _ovTurn = Mathf.MoveTowards(_ovTurn, _ovTarget, Mathf.Max(returnSpeed, Mathf.Abs(_ovTarget - _ovTurn) * 6f) * dt);
-            ApplyTurn(_ovTurn, false);
+            ViewTick(dt);
             return;
         }
         Apply();
