@@ -2167,7 +2167,7 @@ public static class FuwaPlaygroundBuilder
         var col = root.AddComponent<SphereCollider>(); col.isTrigger = true; col.radius = r;
         var rb = root.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
         var pk = root.AddComponent<VRC.SDK3.Components.VRCPickup>();
-        pk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; pk.InteractionText = "まもののぬいぐるみ（トリガーで起こす・寝かせる）"; pk.UseText = "オン / オフ";   // 2026-11-27 オンオフ式はそろえる（まものも） pk.proximity = 2f;
+        pk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; pk.InteractionText = "まもの";   // 2026-11-27 てじゃ「説明も冗長だから、まもの だけでいい」 pk.UseText = "オン / オフ";   // 2026-11-27 オンオフ式はそろえる（まものも） pk.proximity = 2f;
         // 位置は VRCObjectSync を使わず、FuwaPlaygroundPlush が動きの区切りを同期してみんなの画面で計算する（2026-10-14 てじゃ「オーナー以外が撃つとラグって見える」）
         AudioSource Copy(string n, string as_) { var s = e.transform.Find(n); if (s == null) return null; var a = Object.Instantiate(s.gameObject, root.transform, false); a.name = as_; return a.GetComponent<AudioSource>(); }
         var boing = Copy("JumpSfx", "Boing");
