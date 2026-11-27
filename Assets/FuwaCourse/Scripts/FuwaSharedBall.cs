@@ -531,7 +531,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
     private void SetWaiting()
     {
         _shotCharge = 0f; _shotDir = Vector3.zero; _shotAt = -100.0;
-        _sBurnAt = 0.0; _sCharAt = 0.0;
+        _sBurnAt = 0.0; _sCharAt = 0.0; _sBubbled = false;
         _waiting = true;
         _popped = false;
         _respawnAt = -1f;
@@ -847,6 +847,16 @@ public class FuwaSharedBall : UdonSharpBehaviour
     private Vector3 _wind;
     // 風のギミックから物理の1回ごとに呼ばれる（OnTriggerStay）。次の FixedUpdate で加速度として足す
     public void AddWind(Vector3 accel) { _wind += accel; }
+    // 2026-11-28 てじゃ「2人で泡と炎上を混ぜると、相手の画面に空中でピョンピョンはねて撃っても戻ってくる玉が出る」：
+    //  泡に包まれたかを画面ごとに決めていて、持ち主の画面では包まれていないのに相手の画面では包まれ、持ち主の位置への補正と泡の持ち上げが引っぱり合っていた。
+    //  → 包むかは持ち主の画面だけで決めて同期（_sBubbled）。ほかの画面はこれが立っている間だけ泡で運ぶ（FuwaPlaygroundBubbleClam）
+    [UdonSynced] private bool _sBubbled;
+    public bool BubbledSynced() { return _sBubbled && !_waiting && !_popped; }
+    public void SetBubbled(bool on)
+    {
+        if (!Networking.IsOwner(gameObject) || _sBubbled == on) return;
+        _sBubbled = on; _sendSoon = true;
+    }
 
     // 重くなるエリア（FuwaGravityArea）から毎フレーム：次の物理更新だけ落ちる速さ・落ちる上限が scale 倍（FuwaBall と同じ）
     private float _gravScale;
@@ -1060,7 +1070,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
     {
         // 床に落ちたかどうかは持ち主の画面で決める
         _popped = true;
-        _sCharAt = 0.0; _sBurnAt = 0.0;
+        _sCharAt = 0.0; _sBurnAt = 0.0; _sBubbled = false;
         _respawnAt = Time.time + respawnDelay;
         _rb.isKinematic = true;
         RequestSerialization();

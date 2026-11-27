@@ -137,6 +137,12 @@ public class FuwaPlaygroundBubbleClam : UdonSharpBehaviour
     {
         if (!_on || spawner == null || spawner.balls == null || bubbles == null || mouth == null) return;
         double t = Networking.GetServerTimeInSeconds();
+        // 見張り：自分が持ち主の玉が「包まれている」になっているのに、どの泡も包んでいない（持ち主が入れ替わった等）なら外す
+        for (int i = 0; i < spawner.balls.Length; i++)
+        {
+            FuwaSharedBall bb = spawner.balls[i];
+            if (bb != null && bb.BubbledSynced() && Networking.IsOwner(bb.gameObject) && !IsHeldElsewhere(i)) bb.SetBubbled(false);
+        }
         for (int s = 0; s < bubbles.Length; s++)
         {
             Transform b = bubbles[s];
@@ -150,16 +156,22 @@ public class FuwaPlaygroundBubbleClam : UdonSharpBehaviour
                 for (int i = 0; i < spawner.balls.Length; i++)
                 {
                     FuwaSharedBall ball = spawner.balls[i];
-                    if (ball == null || !ball.IsFlying() || Time.time < _freeUntil[i] || IsHeldElsewhere(i)) continue;
+                    if (ball == null || !ball.IsFlying() || IsHeldElsewhere(i)) continue;
+                    bool mine = Networking.IsOwner(ball.gameObject);
+                    // 包むかは玉の持ち主の画面だけで決める。ほかの画面は「持ち主の画面で包まれている」と届いた玉を、いちばん近い泡で運ぶ
+                    if (mine ? Time.time < _freeUntil[i] : !ball.BubbledSynced()) continue;
                     float cr = captureRadius * Mathf.Max(1f, ball.transform.lossyScale.x / Mathf.Max(0.01f, refBallSize));
-                    if ((ball.transform.position - bp).sqrMagnitude < cr * cr) { _held[s] = i; _heldAt[s] = t; if (captureSound != null) { captureSound.transform.position = bp; captureSound.Play(); } break; }
+                    if (!mine) cr *= 3f;   // 位置が少しずれていても拾う
+                    if ((ball.transform.position - bp).sqrMagnitude < cr * cr) { if (mine) ball.SetBubbled(true); _held[s] = i; _heldAt[s] = t; if (captureSound != null) { captureSound.transform.position = bp; captureSound.Play(); } break; }
                 }
             }
             int hi = _held[s]; if (hi < 0) continue;
             FuwaSharedBall hb = spawner.balls[hi];
             if (hb == null || !hb.IsFlying()) { _held[s] = -1; continue; }
-            // 撃たれたら割れて出られる
-            if (hb.LastShotAge() < 0.15f && t - _heldAt[s] > 0.2) { Pop(s); continue; }
+            bool hmine = Networking.IsOwner(hb.gameObject);
+            if (!hmine && !hb.BubbledSynced()) { Pop(s); continue; }   // 持ち主の画面で泡から出た
+            // 撃たれたら割れて出られる（持ち主の画面で決める）
+            if (hmine && hb.LastShotAge() < 0.15f && t - _heldAt[s] > 0.2) { Pop(s); continue; }
             Rigidbody rb = hb.GetComponent<Rigidbody>(); if (rb == null) continue;
             Vector3 acc = (bp - rb.position) * holdPull + (bv - rb.velocity) * holdDamp + Vector3.up * hb.fallAcceleration;
             hb.AddWind(acc);
@@ -175,6 +187,7 @@ public class FuwaPlaygroundBubbleClam : UdonSharpBehaviour
     private void Release(int s)
     {
         int hi = _held[s];
+        if (hi >= 0 && spawner != null && spawner.balls != null && hi < spawner.balls.Length && spawner.balls[hi] != null) spawner.balls[hi].SetBubbled(false);
         if (hi >= 0 && _freeUntil != null && hi < _freeUntil.Length) _freeUntil[hi] = Time.time + recaptureDelay;
         _held[s] = -1;
     }
