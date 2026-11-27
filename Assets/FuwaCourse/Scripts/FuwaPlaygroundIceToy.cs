@@ -17,6 +17,13 @@ public class FuwaPlaygroundIceToy : UdonSharpBehaviour
     [Tooltip("オフにした時の音（なければ toggleSound）")]
     public AudioSource offSound;
 
+    // 2026-11-27 てじゃ「展開後は小さくなって、かつぶつからないように」：氷が出ている間は結晶を小さく（足もとが原点なので床にのったまま縮む）、結晶の当たりも切る（滑っていてぶつからない）
+    [Tooltip("氷が出ている間に縮める結晶（null で縮めない）")]
+    public Transform crystal;
+    public Collider crystalCollider;
+    [Tooltip("氷が出きった時の結晶の大きさ（倍）")]
+    public float onScale = 0.45f;
+
     [UdonSynced] private bool _on;
     private float _k;
 
@@ -89,5 +96,7 @@ public class FuwaPlaygroundIceToy : UdonSharpBehaviour
         if (disc.gameObject.activeSelf != vis) disc.gameObject.SetActive(vis);
         disc.localScale = new Vector3(e, 1f, e);
         if (discCollider != null) discCollider.enabled = e > 0.2f;
+        if (crystal != null) crystal.localScale = Vector3.one * Mathf.Lerp(1f, onScale, e);
+        if (crystalCollider != null) crystalCollider.enabled = e < 0.05f;
     }
 }

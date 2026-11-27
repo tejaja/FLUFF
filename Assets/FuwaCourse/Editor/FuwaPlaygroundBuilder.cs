@@ -1180,7 +1180,7 @@ public static class FuwaPlaygroundBuilder
     }
 
     // 2–3 氷のたね：氷の結晶3本（クリックでオン／オフ同期）＋まわり半径3mにひろがる氷の円（人が滑る FuwaIceSkate・つるつるの物理材質）
-    public static float IceToyR = 3f, IceDiscSkirt = 0.15f;
+    public static float IceToyR = 4.5f, IceDiscSkirt = 0.15f;   // 2026-11-27 てじゃ「展開範囲広げて」3→4.5m
     public static bool PortalPair = true;
     static void FillIceToy(Transform slot)
     {
@@ -1208,12 +1208,31 @@ public static class FuwaPlaygroundBuilder
             var cen = b + q * new Vector3(0f, h * 0.5f, 0f);
             for (int i = 0; i < n; i++) { int j = (i + 1) % n; T(ring0[i], ring0[j], ring1[j], ring0[i] + ring1[j] - 2f * cen); T(ring0[i], ring1[j], ring1[i], ring0[i] + ring1[j] - 2f * cen); T(ring1[i], ring1[j], tip, (ring1[i] + ring1[j]) * 0.5f + tip - 2f * cen); T(ring0[i], ring0[j], b, b - cen); }
         }
-        // 床から生える：根もと（底の輪のいちばん高い点）が床の 4cm 下に来るまで軸にそって下へ伸ばす
+        // 2026-11-27 てじゃ「もちあげたときに下が変、ちゃんと繋がってて下も整えたい」：結晶ごとに床の下へ伸ばした斜めの切り口が、持ち上げるとバラバラに見えていた
+        //  → 結晶の横の面を、床から BaseIn の高さの水平な面まで下ろして（底は水平に切る）、全部の足もとを1つの低い氷の台座に埋める。台座の底は平らな1枚
+        const float BaseIn = 0.02f, BaseH = 0.055f, BaseSide = 0.03f, BaseBevel = 0.035f, BaseMargin = 0.045f;
+        var foot = new List<Vector2>();
         void Grown(Vector3 at, Quaternion q, float r, float h)
         {
-            var up = q * Vector3.up; float tilt = Mathf.Acos(Mathf.Clamp(up.y, -1f, 1f));
-            float depth = (r * Mathf.Sin(tilt) + 0.04f) / Mathf.Max(0.3f, up.y);
-            Crystal(at - up * depth, q, r, h + depth);
+            int n = 6; var up = q * Vector3.up; var ring0 = new Vector3[n]; var ring1 = new Vector3[n];
+            for (int i = 0; i < n; i++)
+            {
+                float a = Mathf.PI * 2f * i / n; var d = q * new Vector3(Mathf.Cos(a) * r, 0f, Mathf.Sin(a) * r);
+                ring1[i] = at + d + up * h;
+                ring0[i] = ring1[i] - up * ((ring1[i].y - BaseIn) / Mathf.Max(0.2f, up.y));   // 横の辺を台座の中の水平な面まで
+                foot.Add(new Vector2(ring0[i].x, ring0[i].z));
+            }
+            var tip = at + up * (h + r * 1.2f);
+            var b = Vector3.zero; foreach (var p in ring0) b += p; b /= n;
+            var cen = (b + at + up * h) * 0.5f;
+            void T(Vector3 x, Vector3 y, Vector3 z, Vector3 want) { if (Vector3.Dot(Vector3.Cross(y - x, z - x), want) < 0f) { var tmp = y; y = z; z = tmp; } int k = cv.Count; cv.Add(x); cv.Add(y); cv.Add(z); ct.Add(k); ct.Add(k + 1); ct.Add(k + 2); }
+            for (int i = 0; i < n; i++)
+            {
+                int j = (i + 1) % n; var sideOut = (ring0[i] + ring1[j]) * 0.5f - (b + (at + up * h)) * 0.5f;
+                T(ring0[i], ring0[j], ring1[j], sideOut); T(ring0[i], ring1[j], ring1[i], sideOut);
+                T(ring1[i], ring1[j], tip, (ring1[i] + ring1[j]) * 0.5f + tip - 2f * cen);
+            }
+            // 底のふたは台座の中なので作らない
         }
         Grown(Vector3.zero, Quaternion.identity, 0.2f, 0.75f);
         Grown(new Vector3(0.2f, 0f, 0.08f), Quaternion.Euler(0f, 0f, -24f), 0.13f, 0.45f);
@@ -1223,17 +1242,54 @@ public static class FuwaPlaygroundBuilder
         Grown(new Vector3(-0.27f, 0f, 0.1f), Quaternion.Euler(10f, 0f, 38f), 0.06f, 0.1f);
         Grown(new Vector3(0.3f, 0f, -0.12f), Quaternion.Euler(25f, 0f, -35f), 0.06f, 0.09f);
         Grown(new Vector3(-0.05f, 0f, 0.27f), Quaternion.Euler(35f, 0f, 8f), 0.05f, 0.08f);
+        // 台座：結晶の足もとの点の凸包を BaseMargin 外へ広げた形。底（y=0、平ら）→ たての側面（BaseSide）→ 面取り（内へ BaseBevel、上面 BaseH）→ 平らな上面
+        {
+            var pts = foot.OrderBy(p => p.x).ThenBy(p => p.y).ToList();
+            float Cr(Vector2 o, Vector2 a2, Vector2 b2) => (a2.x - o.x) * (b2.y - o.y) - (a2.y - o.y) * (b2.x - o.x);
+            var hull = new List<Vector2>();
+            foreach (var p in pts) { while (hull.Count >= 2 && Cr(hull[hull.Count - 2], hull[hull.Count - 1], p) <= 0f) hull.RemoveAt(hull.Count - 1); hull.Add(p); }
+            int lower = hull.Count + 1;
+            for (int i = pts.Count - 2; i >= 0; i--) { var p = pts[i]; while (hull.Count >= lower && Cr(hull[hull.Count - 2], hull[hull.Count - 1], p) <= 0f) hull.RemoveAt(hull.Count - 1); hull.Add(p); }
+            hull.RemoveAt(hull.Count - 1);   // 反時計回り（x,z で見て）
+            // 近すぎる点はまとめる（細かい面が並ばないように）
+            var hs = new List<Vector2>(); foreach (var p in hull) if (hs.Count == 0 || (hs[hs.Count - 1] - p).magnitude > 0.05f) hs.Add(p);
+            if (hs.Count > 3 && (hs[0] - hs[hs.Count - 1]).magnitude < 0.05f) hs.RemoveAt(hs.Count - 1);
+            var c2 = Vector2.zero; foreach (var p in hs) c2 += p; c2 /= hs.Count;
+            int m = hs.Count;
+            // 角ごとに外へ（となりの辺の外向きの平均の向き）広げる
+            Vector2 Off(int i, float d)
+            {
+                var p = hs[i]; var a0 = hs[(i - 1 + m) % m]; var a1 = hs[(i + 1) % m];
+                Vector2 N(Vector2 e) => new Vector2(e.y, -e.x).normalized;   // 反時計回りの辺の外向き
+                var n0 = N(p - a0); var n1 = N(a1 - p); var nm = (n0 + n1).normalized; float cosH = Mathf.Max(0.5f, Vector2.Dot(nm, n0));
+                return p + nm * (d / cosH);
+            }
+            var bot = new Vector3[m]; var mid = new Vector3[m]; var topR = new Vector3[m];
+            for (int i = 0; i < m; i++)
+            {
+                var o = Off(i, BaseMargin); var o2 = Off(i, BaseMargin - BaseBevel);
+                bot[i] = new Vector3(o.x, 0f, o.y); mid[i] = new Vector3(o.x, BaseSide, o.y); topR[i] = new Vector3(o2.x, BaseH, o2.y);
+            }
+            void T2(Vector3 x, Vector3 y, Vector3 z, Vector3 want) { if (Vector3.Dot(Vector3.Cross(y - x, z - x), want) < 0f) { var tmp = y; y = z; z = tmp; } int k = cv.Count; cv.Add(x); cv.Add(y); cv.Add(z); ct.Add(k); ct.Add(k + 1); ct.Add(k + 2); }
+            var cTop = new Vector3(c2.x, BaseH, c2.y); var cBot = new Vector3(c2.x, 0f, c2.y);
+            for (int i = 0; i < m; i++)
+            {
+                int j = (i + 1) % m;
+                var outward = (bot[i] + bot[j]) * 0.5f - cBot; outward.y = 0f;
+                T2(bot[i], bot[j], mid[j], outward); T2(bot[i], mid[j], mid[i], outward);                            // たての側面
+                var bev = outward.normalized + Vector3.up; T2(mid[i], mid[j], topR[j], bev); T2(mid[i], topR[j], topR[i], bev);   // 面取り
+                T2(topR[i], topR[j], cTop, Vector3.up);                                                            // 上面
+                T2(bot[i], bot[j], cBot, Vector3.down);                                                            // 底（平ら）
+            }
+        }
         var cm = new Mesh { name = "Playground_IceSeed" }; cm.SetVertices(cv); cm.SetTriangles(ct, 0); cm.RecalculateNormals(); cm.RecalculateBounds();
         return cm;
     }
 
-    static void FillIceToyRest(Transform slot, GameObject toy, Material iceM, FuwaIceSkate iceSrc)
+    // 氷の円（上の面は床の 2.5cm 上、ふちに厚み）
+    static Mesh IceDiscMesh()
     {
-        // 2026-11-23 てじゃ「こおりのたねがピックアップ判定が出にくい」：この当たり（ふつうのレイヤー）が持つ判定（Grab、結晶の形の柱）とほぼ同じ大きさで、持つためのレイがこちらに当たっていた → 結晶の内側まで小さく
-        var box = toy.AddComponent<BoxCollider>(); box.center = new Vector3(0f, 0.45f, 0f); box.size = new Vector3(0.4f, 0.9f, 0.4f);
-        var it = UdonSharpUndo.AddComponent<FuwaPlaygroundIceToy>(toy);
-        // 氷の円（上の面は床の 2.5cm 上、ふちに厚み）
-        var dv = new List<Vector3>(); var dt = new List<int>(); int seg = 64; float R = IceToyR, H = 0.025f;
+        var dv = new List<Vector3>(); var dt = new List<int>(); int seg = 96; float R = IceToyR, H = 0.025f;
         dv.Add(new Vector3(0f, H, 0f));
         for (int i = 0; i <= seg; i++) { float a = Mathf.PI * 2f * i / seg; dv.Add(new Vector3(Mathf.Cos(a) * R, H, Mathf.Sin(a) * R)); }
         for (int i = 1; i <= seg; i++) { dt.Add(0); dt.Add(i + 1); dt.Add(i); }
@@ -1243,6 +1299,31 @@ public static class FuwaPlaygroundBuilder
         var dm = new Mesh { name = "Playground_IceDisc" }; dm.SetVertices(dv); dm.SetTriangles(dt, 0); dm.RecalculateNormals(); dm.RecalculateBounds();
         // 上向きでなければ面を裏返す（真ん中の面）
         if (dm.normals[0].y < 0f) { var tt = dm.triangles; for (int i = 0; i < tt.Length; i += 3) { var x = tt[i + 1]; tt[i + 1] = tt[i + 2]; tt[i + 2] = x; } dm.triangles = tt; dm.RecalculateNormals(); }
+        return dm;
+    }
+
+    // シーンのこおりのたねだけ直す（丸ごと作り直さない）：結晶の形・氷の円の大きさ・氷が出ている間に結晶を縮める設定
+    [MenuItem("FuwaCourse/済み（押す前に相談）/あそびば：こおりのたねを直す（結晶の台座・氷の範囲・展開中は小さく）")]
+    public static void FixIceToy()
+    {
+        var pg = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "FuwaPlayground" && t.parent == null);
+        var seed = pg.GetComponentsInChildren<FuwaPlaygroundIceToy>(true).First();
+        SaveGenMesh(IceSeedMesh(), "Playground_IceSeed");
+        var dm = SaveGenMesh(IceDiscMesh(), "Playground_IceDisc");
+        var mc = seed.discCollider as MeshCollider; if (mc != null) { mc.sharedMesh = null; mc.sharedMesh = dm; EditorUtility.SetDirty(mc); }
+        seed.discRadius = IceToyR; seed.crystal = seed.transform; seed.crystalCollider = seed.GetComponent<BoxCollider>();
+        UdonSharpEditorUtility.CopyProxyToUdon(seed); EditorUtility.SetDirty(seed);
+        AssetDatabase.SaveAssets();
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(pg.gameObject.scene);
+        Debug.Log("こおりのたね：直した（氷の半径 " + IceToyR + "m）");
+    }
+
+    static void FillIceToyRest(Transform slot, GameObject toy, Material iceM, FuwaIceSkate iceSrc)
+    {
+        // 2026-11-23 てじゃ「こおりのたねがピックアップ判定が出にくい」：この当たり（ふつうのレイヤー）が持つ判定（Grab、結晶の形の柱）とほぼ同じ大きさで、持つためのレイがこちらに当たっていた → 結晶の内側まで小さく
+        var box = toy.AddComponent<BoxCollider>(); box.center = new Vector3(0f, 0.45f, 0f); box.size = new Vector3(0.4f, 0.9f, 0.4f);
+        var it = UdonSharpUndo.AddComponent<FuwaPlaygroundIceToy>(toy);
+        var dm = IceDiscMesh();
         dm = SaveGenMesh(dm, "Playground_IceDisc");
         var disc = new GameObject("IceDisc"); disc.transform.SetParent(slot, false);
         disc.AddComponent<MeshFilter>().sharedMesh = dm; disc.AddComponent<MeshRenderer>().sharedMaterial = iceM;
@@ -1251,7 +1332,8 @@ public static class FuwaPlaygroundBuilder
         if (pm == null) { pm = new PhysicMaterial("Playground_Ice") { dynamicFriction = 0f, staticFriction = 0f, frictionCombine = PhysicMaterialCombine.Minimum, bounciness = 0f }; AssetDatabase.CreateAsset(pm, "Assets/FuwaCourse/Materials/Playground_Ice.physicMaterial"); }
         mc.sharedMaterial = pm;
         disc.transform.localScale = new Vector3(0.001f, 1f, 0.001f); disc.SetActive(false);
-        it.disc = disc.transform; it.discCollider = mc;
+        it.disc = disc.transform; it.discCollider = mc; it.discRadius = IceToyR;
+        it.crystal = toy.transform; it.crystalCollider = box;   // 氷が出ている間は結晶を小さく・当たりなし（2026-11-27）
         UdonSharpEditorUtility.CopyProxyToUdon(it);
         { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(it); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Manual; ub.interactText = "こおり"; EditorUtility.SetDirty(ub); } }
         // 人が滑る：コース2–3 の IceSkate を写して、氷＝この円だけ
