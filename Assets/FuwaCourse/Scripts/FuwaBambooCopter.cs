@@ -83,6 +83,7 @@ public class FuwaBambooCopter : UdonSharpBehaviour
     // ゆらゆら：傾き（上向きからのずれ、水平の x・z）とその速さ。玉の位置と速さの前の値
     private Vector3 _tilt, _tiltVel, _prevPos, _prevVel;
     private bool _hasPrev;
+    private Vector3 _grabLocal; private bool _hasGrab;
 
     private void Start()
     {
@@ -134,6 +135,18 @@ public class FuwaBambooCopter : UdonSharpBehaviour
         _mobile = false;
 #endif
         _gravity = p.GetGravityStrength();
+        // 2026-11-27 てじゃ「上のほう掴むとそのまま上つかんじゃう、判定は全体にしつつ実際に掴むのは球のあたりに」：
+        //  つかんだ時の手の位置を覚えて、見た目（球＝visual の原点）をその手の位置に出す。当たり（持てる範囲）は全体のまま
+        Vector3 hp;
+        if (p.IsUserInVR())
+        {
+            bool left = _pickup != null && _pickup.currentHand == VRC_Pickup.PickupHand.Left;
+            hp = p.GetTrackingData(left ? VRCPlayerApi.TrackingDataType.LeftHand : VRCPlayerApi.TrackingDataType.RightHand).position;
+        }
+        else hp = p.GetBonePosition(HumanBodyBones.RightHand);
+        _grabLocal = transform.InverseTransformPoint(hp);
+        _hasGrab = hp != Vector3.zero && _grabLocal.magnitude < 0.7f;
+        if (!_hasGrab) _grabLocal = Vector3.zero;
         if (manager != null) manager.ReturnGunToStand();   // 銃は台にもどす（てじゃ「竹とんぼもったら銃が台に戻るようにしよ」）
         if (bounds != null) bounds.SetActive(true);
     }
@@ -142,6 +155,8 @@ public class FuwaBambooCopter : UdonSharpBehaviour
     {
         _droppedAt = Time.time;
         if (bounds != null) bounds.SetActive(false);
+        // 手放した所に球が残るように、本体を球（見た目）の位置へ
+        if (_hasGrab) { transform.position = transform.TransformPoint(_grabLocal); _hasGrab = false; _grabLocal = Vector3.zero; }
         if (!_mine) return;
         EndFlight();
         _mine = false;
@@ -229,7 +244,7 @@ public class FuwaBambooCopter : UdonSharpBehaviour
     {
         if (visual == null) return;
         float dt = Time.deltaTime;
-        Vector3 pos = transform.position;
+        Vector3 pos = _hasGrab ? transform.TransformPoint(_grabLocal) : transform.position;   // 持っている間は、つかんだ手の位置に球
         Vector3 vel = Vector3.zero, acc = Vector3.zero;
         if (_hasPrev && dt > 1e-4f)
         {
