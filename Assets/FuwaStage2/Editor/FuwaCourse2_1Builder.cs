@@ -935,7 +935,7 @@ public static class FuwaCourse2_1Builder
 
     // ---- スタート・ゴール（2026-10-23）----
     // ステージ1のコース1のスタート一式・ゴール一式を写して使う（てじゃ「最終的にはステージ1のスタートとゴールの配置を統一したい。小島から小島のやつ」）。
-    // 写した物の中の参照は写した物へ付け替え、ワープの戻り先はステージ2のロビー、日本語・英語の切り替えとエアガンの台も登録する
+    // 写した物の中の参照は写した物へ付け替え、ワープの戻り先はステージ2のロビー、日本語・英語の切り替えとエアブラスターの台も登録する
 
     // 写す元 src の子（names が null なら全部）を dst の下に写す。元の物 → 写した物 の対応表を map に足す
     internal static void CopyChildren(Transform src, Transform dst, string[] names, Dictionary<Object, Object> map)
@@ -955,7 +955,7 @@ public static class FuwaCourse2_1Builder
         }
     }
 
-    // 写した物の U# の参照を付け替える。ロビーへのワープはステージ2のロビーへ。日本語・英語の文字とエアガンの台を FuwaLanguage に登録
+    // 写した物の U# の参照を付け替える。ロビーへのワープはステージ2のロビーへ。日本語・英語の文字とエアブラスターの台を FuwaLanguage に登録
     internal static void FixCopied(Transform dst, Dictionary<Object, Object> map)
     {
         var lobby2 = GameObject.Find("FuwaStage2/Lobby")?.transform;
@@ -998,7 +998,7 @@ public static class FuwaCourse2_1Builder
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon((UdonSharp.UdonSharpBehaviour)lang);
     }
 
-    // スタート：コース1の Start を丸ごと（ロビーへ戻るポータルの島 → 木の橋 → キノコの島。エアガンの台つき）。
+    // スタート：コース1の Start を丸ごと（ロビーへ戻るポータルの島 → 木の橋 → キノコの島。エアブラスターの台つき）。
     // キノコの島から、もう1本の木の橋で洞窟の奥の壁の入口へ。人は歩いて洞窟に入って行く
     // 洞窟の奥の壁の入口（半分の幅・高さ）。2026-10-25 岩山のアーチ（Stage2_CaveRock の Cut_Arch：幅±2.6・天井まで）に合わせて 1.3/2.4 → 2.6/2.6
     public static float M1MouthS = 5.5f, M1MouthW = 3.56f;   // 洞窟の前の出口の始まり（s）と、そこからの床の幅

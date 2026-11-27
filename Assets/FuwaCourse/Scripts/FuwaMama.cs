@@ -5,7 +5,7 @@ using VRC.SDKBase;
 // まもののすの奥の大きい巣で寝ている「ママけだま」（自分の画面だけ、同期なし）。
 // 近くに来ると起きて、巣の中をめっちゃゆっくりふわふわを追いかけてくる（運んでない時はプレイヤー）。
 // ふわふわにぶつかると大きめに吹っ飛ばす（2026-10-09 ちびけだまと同じくふわふわ狙いに）。人も通り道にいれば吹っ飛ぶ。
-// エアガンはチャージ撃ちだけ少し押せる（ノンチャージは効かない）。倒せないので急いで抜ける。
+// エアブラスターはチャージ撃ちだけ少し押せる（ノンチャージは効かない）。倒せないので急いで抜ける。
 // （useSneeze をONにすると、前の「くしゃみで押し戻す」も使える）
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaMama : UdonSharpBehaviour
@@ -28,7 +28,7 @@ public class FuwaMama : UdonSharpBehaviour
     public float pupilDepth = 0.04f;
 
     [Header("風の当たり判定")]
-    [Tooltip("エアガンの風が当たる体の半径(m)。風の円すいがこの球のどこかにかすれば当たり（2026-10-07 前は中心の1点だけだった）")]
+    [Tooltip("エアブラスターの風が当たる体の半径(m)。風の円すいがこの球のどこかにかすれば当たり（2026-10-07 前は中心の1点だけだった）")]
     public float hitRadius = 1.3f;
 
     [Header("追いかける")]
@@ -81,7 +81,7 @@ public class FuwaMama : UdonSharpBehaviour
     [Tooltip("浮いている間の横の押しの減り方（床の上より小さく＝ふわっと飛ぶ）")]
     public float airDamping = 0.9f;
     public AudioSource bumpSound;
-    [Tooltip("エアガンが当たった時の音（けだまと同じ音を低くして重そうに）")]
+    [Tooltip("エアブラスターが当たった時の音（けだまと同じ音を低くして重そうに）")]
     public AudioSource blownSound;
     public float blownPitch = 0.6f;
 
@@ -159,7 +159,7 @@ public class FuwaMama : UdonSharpBehaviour
         _home.y = transform.position.y;
     }
 
-    // エアガンから（FuwaBlower）。ノンチャージは pushScaleNormal（0なら効かない）、チャージは pushScale で押して少しひるむ
+    // エアブラスターから（FuwaBlower）。ノンチャージは pushScaleNormal（0なら効かない）、チャージは pushScale で押して少しひるむ
     public void Blown(Vector3 impulse, bool charged)
     {
         if (_state == 0 || _state == 4) return;

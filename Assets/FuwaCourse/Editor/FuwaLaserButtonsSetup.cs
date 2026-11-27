@@ -3,7 +3,7 @@ using UdonSharpEditor;
 using UnityEditor;
 using UnityEngine;
 
-// エアガンの台・アバター見本は、台／看板そのもののクリック（Interact）で使う。
+// エアブラスターの台・アバター見本は、台／看板そのもののクリック（Interact）で使う。
 // 一度「押すもの全部レーザー式に」でそばにレーザーボタン（_LaserButton）を付けたが、ほかもインタラクト式が多いので戻した（2026-10-12 てじゃ「台をインタラクトのはずだった」「アバターもインタラクト式にもどそうか」）。
 // このメニューはそのボタンを消して laserOnly を切る。何度実行してもよい
 public static class FuwaLaserButtonsSetup

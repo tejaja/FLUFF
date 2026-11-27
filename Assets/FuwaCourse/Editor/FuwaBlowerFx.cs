@@ -1,7 +1,7 @@
 using UnityEditor;
 using UnityEngine;
 
-// エアガンの撃った時の見た目（空気っぽく）を作る。何度実行しても同じ結果。
+// エアブラスターの撃った時の見た目（空気っぽく）を作る。何度実行しても同じ結果。
 // ・Puff（もとからある、FuwaBlower.puffEffect）：もこもこの空気のかたまり。前へ飛びながらふくらんで、減速して消える
 //   （FuwaBlower がチャージに合わせて startSpeedMultiplier を変えるので、届く距離はチャージで変わる）
 // ・Puff/AirRing：ラッパの口から前へ飛んで広がる空気の輪（Puff と一緒に再生される）
@@ -32,7 +32,7 @@ public static class FuwaBlowerFx
     };
     static V cur = Variants[2];   // てじゃが選んだ「3_輪っかメイン」（2026-10-05）
 
-    [MenuItem("FuwaCourse/済み（押す前に相談）/エアガンの射撃エフェクトを作る")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/エアブラスターの射撃エフェクトを作る")]
     public static void RunMenu() { Debug.Log(Run()); }
 
     public static string Run(int variant)

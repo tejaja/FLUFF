@@ -2,7 +2,7 @@ using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 
-// イースターエッグ：太陽をエアガンで撃つと、空の太陽（FuwaCourse/GradientSky）の目が「＞＜」になってプルプルする。
+// イースターエッグ：太陽をエアブラスターで撃つと、空の太陽（FuwaCourse/GradientSky）の目が「＞＜」になってプルプルする。
 // 空のシェーダーのグローバル _UdonSunSquint（0〜1）を動かすだけ。FuwaBlower が全員に Squint を呼ぶ
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaSunFace : UdonSharpBehaviour

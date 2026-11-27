@@ -10,10 +10,10 @@ using UnityEngine;
 public static class FuwaTutorialWelcomeBuilder
 {
     const string ProgramPath = "Assets/FuwaCourse/Scripts/FuwaReadMarks.asset";
-    // 2026-11-17 てじゃ「エアガンを忘れずに、を削除」「看板を読みながら 道に沿って進もう の2行で十分かも」
-    // 2026-11-24 てじゃ「ようこそ！／ここでエアガンの基本を学ぼう、だけでええか」
-    const string WelcomeJa = "<size=130%><color=#FF6B5C>ようこそ！</color></size>\nここでエアガンの基本を学ぼう";
-    const string WelcomeEn = "<size=130%><color=#FF6B5C>Welcome!</color></size>\nLearn the basics of the air gun here";
+    // 2026-11-17 てじゃ「エアブラスターを忘れずに、を削除」「看板を読みながら 道に沿って進もう の2行で十分かも」
+    // 2026-11-24 てじゃ「ようこそ！／ここでエアブラスターの基本を学ぼう、だけでええか」
+    const string WelcomeJa = "<size=130%><color=#FF6B5C>ようこそ！</color></size>\nここでエアブラスターの基本を学ぼう";
+    const string WelcomeEn = "<size=130%><color=#FF6B5C>Welcome!</color></size>\nLearn the basics of the air blaster here";
 
     // ▼の大きさ（スタートの▼は 0.29×0.35。看板の上は少し離れて見るので大きめ）
     const float MarkW = 0.42f, MarkH = 0.5f;
@@ -38,11 +38,11 @@ public static class FuwaTutorialWelcomeBuilder
         var spot = ent.Find("PlayerSpot");
         var gunSign = ent.Find("GunSign");
 
-        // ---- A：ようこそ看板（エアガンの看板を、道の向きを軸に左右反転した位置へ）----
+        // ---- A：ようこそ看板（エアブラスターの看板を、道の向きを軸に左右反転した位置へ）----
         var old = ent.Find("WelcomeSign"); if (old != null) Object.DestroyImmediate(old.gameObject);
         var w = Object.Instantiate(gunSign.gameObject, ent).transform; w.name = "WelcomeSign";
-        // 2026-10-12 てじゃ「ようこそ→エアガンの順に」：前のエアガンの看板の場所（右前）へ。
-        // エアガンの看板と台は道に入ったとこの左へ（FuwaPracticeTutorial.GunSignLocal）。
+        // 2026-10-12 てじゃ「ようこそ→エアブラスターの順に」：前のエアブラスターの看板の場所（右前）へ。
+        // エアブラスターの看板と台は道に入ったとこの左へ（FuwaPracticeTutorial.GunSignLocal）。
         // 読む距離（3.2m）より少しだけ遠くして、出た瞬間に「読んだ」になって▼が消えないように
         // → VRChatで入ったら右はしで近すぎて見えづらかった（てじゃ）。正面ちょい右・4.2m先へ（入った時に読んだ判定にもならない）
         w.position = spot.TransformPoint(new Vector3(0.8f, 0f, 4.1f));
@@ -71,8 +71,8 @@ public static class FuwaTutorialWelcomeBuilder
         }
 
         // ---- C：看板の上の「！」----
-        // 道の順（ようこそ → エアガンの看板 → 各練習場 → 最後の2枚）
-        //（エアガンの看板：最初は付けていなかったが、2026-10-12 てじゃ「看板の赤矢印をエアガンの看板にも」）
+        // 道の順（ようこそ → エアブラスターの看板 → 各練習場 → 最後の2枚）
+        //（エアブラスターの看板：最初は付けていなかったが、2026-10-12 てじゃ「看板の赤矢印をエアブラスターの看板にも」）
         var signs = new List<Transform> { w, gunSign };
         foreach (Transform bay in tut) if (bay.name.StartsWith("Bay_")) { var s = bay.Find("Sign"); if (s != null) signs.Add(s); }
         var tail = new List<Transform>();
@@ -122,7 +122,7 @@ public static class FuwaTutorialWelcomeBuilder
         rm.marks = marks.ToArray();
         rm.signs = signs.ToArray();
         rm.radius = MarkH * 0.5f;
-        // 練習場の看板とバリアは、前の看板を読んだら（または近づいたら）ぽんっと出す。最初の練習場はようこそを読んだら（エアガンの看板は読まなくてもよい）
+        // 練習場の看板とバリアは、前の看板を読んだら（または近づいたら）ぽんっと出す。最初の練習場はようこそを読んだら（エアブラスターの看板は読まなくてもよい）
         var rev = new List<GameObject>(); var at = new List<int>();
         for (int i = 0; i < signs.Count; i++)
         {

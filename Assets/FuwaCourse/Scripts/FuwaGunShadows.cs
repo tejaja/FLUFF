@@ -2,14 +2,14 @@
 using UnityEngine;
 using VRC.SDKBase;
 
-// みんなのエアガンのうそ影（本物の影は切ってある。自分の画面だけ）。
+// みんなのエアブラスターのうそ影（本物の影は切ってある。自分の画面だけ）。
 // 銃の見た目の真ん中から真下へ線を飛ばし、当たった地面の上下うすい範囲だけに塗る（FuwaCourse/BlobDecal の箱。アバターの体には塗らない）。
 // 銃の前後に合わせた楕円で、銃の大きさ（アバターの大きさ）に合わせて伸び縮み、高く離れるほど薄く・少し大きく。
 // 影の箱は銃（PlayerObject）の子にすると、掴める物の枠線に箱の形が出るので、ここ（シーン側）に人数ぶん並べておく
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaGunShadows : UdonSharpBehaviour
 {
-    [Tooltip("エアガン（PlayerObject の元）")]
+    [Tooltip("エアブラスター（PlayerObject の元）")]
     public FuwaBlower blowerTemplate;
     public Renderer[] shadows;
     [Tooltip("等倍の時の影の大きさ（x=横幅, y=前後の長さ m）")]

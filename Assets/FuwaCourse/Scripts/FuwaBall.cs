@@ -351,7 +351,7 @@ public class FuwaBall : UdonSharpBehaviour
 
         _rb.AddForce(Vector3.down * fallAcceleration * g, ForceMode.Acceleration);
         UpdatePerch();
-        // エアガンを溜めている間のささやかな引き寄せ（FuwaBlower.SetChargePull から毎フレーム届く）
+        // エアブラスターを溜めている間のささやかな引き寄せ（FuwaBlower.SetChargePull から毎フレーム届く）
         if (Time.time < _pullUntil) _rb.AddForce(_pullAcc, ForceMode.Acceleration);
 
         // 発射台の「遠くへ飛ばす」打ち出しの間は、空気抵抗を弱くして速さの上限もかけない
@@ -469,7 +469,7 @@ public class FuwaBall : UdonSharpBehaviour
         _rb.AddTorque(axis * spinPerPuff + Random.insideUnitSphere * spinRandom, ForceMode.VelocityChange);
     }
 
-    // エアガンを溜めている間、銃口の方へごく弱く引き寄せる（届かなくなったら0.1秒で切れる）
+    // エアブラスターを溜めている間、銃口の方へごく弱く引き寄せる（届かなくなったら0.1秒で切れる）
     private Vector3 _pullAcc;
     private float _pullUntil;
     public void SetChargePull(Vector3 acceleration)
@@ -573,7 +573,7 @@ public class FuwaBall : UdonSharpBehaviour
     public float resistGlowTime = 0.9f;
     private float _windDampGlow = 0f;
 
-    // エアガンで撃たれた時に呼ばれる（charge 0〜1、shotDir＝飛ばした向き）。しばらく風の効きを弱め（溜めるほど長く保つ）、だんだん元に戻す
+    // エアブラスターで撃たれた時に呼ばれる（charge 0〜1、shotDir＝飛ばした向き）。しばらく風の効きを弱め（溜めるほど長く保つ）、だんだん元に戻す
     public void ShotWindDamp(float charge, Vector3 shotDir)
     {
         _windDampStart = Time.time;

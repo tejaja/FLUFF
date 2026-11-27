@@ -4,14 +4,14 @@ using UdonSharpEditor;
 using UnityEditor;
 using UnityEngine;
 
-// スマホの「エアガンを呼ぶ」ボタン（FuwaMobileGunButton）を FuwaSystem の下に作る（2026-10-14）。何度実行しても同じ結果
+// スマホの「エアブラスターを呼ぶ」ボタン（FuwaMobileGunButton）を FuwaSystem の下に作る（2026-10-14）。何度実行しても同じ結果
 public static class FuwaMobileGunButtonBuilder
 {
     const string ProgramPath = "Assets/FuwaCourse/Scripts/FuwaMobileGunButton.asset";
     const string TexPath = "Assets/FuwaCourse/Textures/Icons/MobileGunButton.png";
     const string MatPath = "Assets/FuwaCourse/Materials/MobileGunButton.mat";
 
-    [MenuItem("FuwaCourse/済み（押す前に相談）/スマホのエアガン呼び出しボタンを作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/スマホのエアブラスター呼び出しボタンを作り直す")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static string Run()

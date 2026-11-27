@@ -4,7 +4,7 @@ using UdonSharpEditor;
 using UnityEditor;
 using UnityEngine;
 
-// エアガン（PlayerObject の FuwaBlower）の本体・ラッパ（Accent）・持ち手・通気口を、頂点の色で1つのメッシュ・1つの材質にまとめる。
+// エアブラスター（PlayerObject の FuwaBlower）の本体・ラッパ（Accent）・持ち手・通気口を、頂点の色で1つのメッシュ・1つの材質にまとめる。
 // 2026-11-21 てじゃ「銃を皆もってると負荷が凄いかも」「見た目に差がでるのやだな、そもそもの作りを軽量化しよか」：
 //  4つの部品は材質が色ちがいなだけ（FuwaCourse/ToonLit、色以外の値は全部同じ）だったので、色を頂点に入れて（_UseVertexColor）1回で描く。見た目は同じ。
 //  金ピカは金色の頂点の写し（Gun_Merged_Gold）と金の材質に差しかえる（FuwaBlower.goldMeshFilters / goldMeshes）。
@@ -34,7 +34,7 @@ public static class FuwaGunMerge
             .Select(AssetDatabase.LoadAssetAtPath<Material>).FirstOrDefault(m => m != null && m.name == name);
     }
 
-    [MenuItem("FuwaCourse/エアガン/本体の部品を1つにまとめる（頂点の色）")]
+    [MenuItem("FuwaCourse/エアブラスター/本体の部品を1つにまとめる（頂点の色）")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static string Run()

@@ -3,7 +3,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-// エアガンのラッパの首まわり（ラッパの裏の広がった輪）を作り直す。元は Gun_Accent_Source、書き出し先は Gun_Accent。何度実行しても同じ結果。
+// エアブラスターのラッパの首まわり（ラッパの裏の広がった輪）を作り直す。元は Gun_Accent_Source、書き出し先は Gun_Accent。何度実行しても同じ結果。
 // ・前から見た時：輪の外側からラッパの首へ、なめらかな曲面でつなげて埋める（すき間から中が見えない）
 // ・後ろから見た時：今まで通り、輪の内側に暗い通気口（Gun_Vent）と支えの棒が見える
 // 古い輪の面（外側・後ろのふち・内側の壁）は消して、1枚の回転体に置き換える。ラッパ本体・支えの棒・ほかの黄色い部品はそのまま
@@ -74,7 +74,7 @@ public static class FuwaGunCollarRebuild
             }
     }
 
-    [MenuItem("FuwaCourse/済み（押す前に相談）/エアガンのラッパの首を作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/エアブラスターのラッパの首を作り直す")]
     public static void RunMenu() { Debug.Log(Run()); Debug.Log(FuwaGunWeld.Run()); Debug.Log(FuwaGunMerge.Run()); }   // 最後に重複頂点をまとめて、部品を1つにまとめ直す（2026-11-21）
 
     public static string Run()

@@ -1,7 +1,7 @@
 using UdonSharp;
 using UnityEngine;
 
-// スタートのキノコ。エアガンで撃つと傘がぷるんと揺れて、中にしまってある胞子（けだま）が飛び出す
+// スタートのキノコ。エアブラスターで撃つと傘がぷるんと揺れて、中にしまってある胞子（けだま）が飛び出す
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaStartMushroom : UdonSharpBehaviour
 {
@@ -29,7 +29,7 @@ public class FuwaStartMushroom : UdonSharpBehaviour
         if (cap != null) _capScale = cap.localScale;
     }
 
-    // エアガンから呼ばれる（shotDir＝撃った向き。胞子はその向きに飛び出す）
+    // エアブラスターから呼ばれる（shotDir＝撃った向き。胞子はその向きに飛び出す）
     public void Hit(Vector3 shotDir)
     {
         _wobbleStart = Time.time;

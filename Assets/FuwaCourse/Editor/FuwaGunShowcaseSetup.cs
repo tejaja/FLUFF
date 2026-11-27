@@ -5,7 +5,7 @@ using UdonSharpEditor;
 using UnityEditor;
 using UnityEngine;
 
-// 台に乗っているエアガンを目立たせる見た目（FuwaGunShowcase）を作る。何度実行しても同じ結果（作り直し）。
+// 台に乗っているエアブラスターを目立たせる見た目（FuwaGunShowcase）を作る。何度実行しても同じ結果（作り直し）。
 // ・見た目だけの銃：本物の銃（FuwaBlower）の Visual を複製して、まん中を回転の中心に
 // ・後ろの後光（筋の入ったやわらかい光。ゆっくり回って明滅。テクスチャは FX_GunHalo）と、下から立ちのぼる小さい星のキラキラ
 // ・各台の▼を、浮かんだ銃のすぐ上へ
@@ -16,7 +16,7 @@ public static class FuwaGunShowcaseSetup
     const string MeshDir = "Assets/FuwaCourse/Meshes/GunStand";
     const float ShowScale = 1.4f;   // 台の上の見た目の銃は少し大きめに（遠くからでも形が分かるように）
 
-    [MenuItem("FuwaCourse/済み（押す前に相談）/エアガンの台の見た目を作る")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/エアブラスターの台の見た目を作る")]
     public static void RunMenu() { Debug.Log(Run()); }
 
     public static string Run()
@@ -198,7 +198,7 @@ public static class FuwaGunShowcaseSetup
     }
 
     // 今ある枠のメッシュだけを包む形に作り直す（台の見た目の作り直し全部はしない）
-    [MenuItem("FuwaCourse/済み（押す前に相談）/エアガンの台の枠を軽い形にする")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/エアブラスターの台の枠を軽い形にする")]
     static void HighlightOnlyMenu() { Debug.Log(RebuildHighlightsOnly()); }
     public static string RebuildHighlightsOnly()
     {

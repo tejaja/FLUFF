@@ -7,7 +7,7 @@ using VRC.SDKBase;
 // ・ロビーの傘立てに並べてある同期ピックアップ（VRCObjectSync）。持っている傘はみんなに見える。人が持っている傘は取れない
 // ・持って「使う」（トリガー／クリック／スマホの使うボタン）を押している間、傘の向き（PC・スマホは見ている方）へ飛ぶ
 // ・押していない間は、持っているだけでゆっくり降りる（落ちる速さに上限）
-// ・手放す・エアガンを持つ → その場にしばらく残って（returnDelay 秒）、だれも持たなければ傘立ての元の場所へ戻る（ObjectSync の Respawn）
+// ・手放す・エアブラスターを持つ → その場にしばらく残って（returnDelay 秒）、だれも持たなければ傘立ての元の場所へ戻る（ObjectSync の Respawn）
 //   2026-11-08 てじゃ「離してもしばらく残っててほしい」
 // ・傘立てでは閉じていて、持つと開く（シェイプキー Closed。開き具合は持っているかどうかの同期変数から、それぞれの画面で動かす）
 [UdonBehaviourSyncMode(BehaviourSyncMode.Continuous)]
@@ -141,7 +141,7 @@ public class FuwaUmbrella : UdonSharpBehaviour
         if (!_mine) return;
         VRCPlayerApi p = Networking.LocalPlayer;
         if (p == null) return;
-        // エアガンを持ったら手放す
+        // エアブラスターを持ったら手放す
         if (manager != null)
         {
             FuwaBlower gun = manager.GetMyBlower();

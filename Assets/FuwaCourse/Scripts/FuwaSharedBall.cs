@@ -521,7 +521,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
         if (_trail != null) _trail.Clear();
     }
 
-    // エアガンから呼ばれる（吹いた人の画面で）。自分の画面ではすぐ動かし、持ち主でなければ持ち主にも伝える。charge＝溜め具合（0〜1）
+    // エアブラスターから呼ばれる（吹いた人の画面で）。自分の画面ではすぐ動かし、持ち主でなければ持ち主にも伝える。charge＝溜め具合（0〜1）
     public void BlowShared(Vector3 velocityChange, float charge)
     {
         Init();

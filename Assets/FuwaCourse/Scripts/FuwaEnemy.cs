@@ -6,7 +6,7 @@ using VRC.SDKBase;
 
 // うろうろ → けだまが近づくと溜め（ぷるぷる）→ けだまめがけて突進。けだまに当たると吹っ飛ばす（道の外まで飛べばアウト）。
 // 人は狙わないけど、突進の通り道にいたら人も吹っ飛ぶ。
-// エアガンで押し返せて、溜め中に当てるとひるむ。浮いてるので道の外に出しても落ちない。
+// エアブラスターで押し返せて、溜め中に当てるとひるむ。浮いてるので道の外に出しても落ちない。
 // 倒せるのはトゲに当てた時だけ（しばらくして元の場所に復活）。
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaEnemy : UdonSharpBehaviour
@@ -111,7 +111,7 @@ public class FuwaEnemy : UdonSharpBehaviour
     private float _bumpUntil;
     private float _squashUntil;
 
-    [Header("エアガンで押された時")]
+    [Header("エアブラスターで押された時")]
     public float pushScale = 1.6f;
     public float pushDamping = 3f;
     public float stunTime = 0.7f;
@@ -139,13 +139,13 @@ public class FuwaEnemy : UdonSharpBehaviour
     public float hideDepth = 0.6f;
 
     [Header("寝てる（まもののす）")]
-    [Tooltip("ONなら、ふだんは寝ている。走って近づく・エアガンの音・さわると起きる")]
+    [Tooltip("ONなら、ふだんは寝ている。走って近づく・エアブラスターの音・さわると起きる")]
     public bool sleeping = false;
     [Tooltip("この距離の中を走ると起きる(m)")]
     public float wakeRange = 3.5f;
     [Tooltip("この速さより速く動くと「走ってる」(m/s)")]
     public float sneakSpeed = 2.4f;
-    [Tooltip("エアガンを撃つ音が聞こえる距離(m)")]
+    [Tooltip("エアブラスターを撃つ音が聞こえる距離(m)")]
     public float hearRange = 6f;
     [Tooltip("寝てる間に鼻から出す泡（息に合わせてふくらむ）")]
     public Transform sleepFx;
@@ -170,7 +170,7 @@ public class FuwaEnemy : UdonSharpBehaviour
     public AudioSource hitSound;
     [Tooltip("ポヨンの時の音")]
     public AudioSource bumpSound;
-    [Tooltip("エアガンで撃たれた時の音（溜め撃ちで大きく）")]
+    [Tooltip("エアブラスターで撃たれた時の音（溜め撃ちで大きく）")]
     public AudioSource blownSound;
     [Tooltip("道から落ちる時の「ヒューン」")]
     public AudioSource fallSound;
@@ -336,7 +336,7 @@ public class FuwaEnemy : UdonSharpBehaviour
     }
 
 
-    // エアガンを撃った音（FuwaBlower から）。寝てたら起きる
+    // エアブラスターを撃った音（FuwaBlower から）。寝てたら起きる
     public void Hear(Vector3 pos)
     {
         if (_state == 10 && (pos - transform.position).magnitude < hearRange) Wake();
@@ -838,7 +838,7 @@ public class FuwaEnemy : UdonSharpBehaviour
         }
     }
 
-    // エアガンから呼ばれる。stun=false（溜めが足りない）なら、突進は止まらず少しずれるだけ
+    // エアブラスターから呼ばれる。stun=false（溜めが足りない）なら、突進は止まらず少しずれるだけ
     public void Blown(Vector3 impulse, bool stun)
     {
         // 落ちてる・消えてる・巣の床の下にかくれてる（もぐってる）時は効かない（前は床の下をすべって落ちていた）

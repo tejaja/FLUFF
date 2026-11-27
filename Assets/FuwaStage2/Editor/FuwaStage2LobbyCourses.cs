@@ -76,7 +76,7 @@ public static class FuwaStage2LobbyCourses
                 var so = new SerializedObject(w);
                 so.FindProperty("courseStart").objectReferenceValue = cStart.Find("BallStart");
                 so.FindProperty("playerSpot").objectReferenceValue = cStart.Find("PlayerSpot");
-                var stand = cStart.GetComponentInChildren<FuwaGunStand>(true);   // スタートの島のエアガンの台（2026-10-23 からステージ1のスタートを写している）
+                var stand = cStart.GetComponentInChildren<FuwaGunStand>(true);   // スタートの島のエアブラスターの台（2026-10-23 からステージ1のスタートを写している）
                 so.FindProperty("gunSpot").objectReferenceValue = stand ? stand.gunSpot : null;
                 // ロビーへ戻った時（手動リスポーン・スタートやゴールのロビーへのワープ）の立ち位置：まん中で、このコースのワープの台を向く。
                 //  2026-11-05 てじゃ「ステージ2のコース、手動リスポーンしたときの向きが2-1固定になってる、各コースにしといて」：前は全部 LobbySpawn（2–1 向き）だった。ステージ1の LobbySpawn_FromN と同じ

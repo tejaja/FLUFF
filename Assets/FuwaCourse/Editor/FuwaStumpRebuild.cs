@@ -3,7 +3,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-// エアガンの台の切り株（GunStand_Stump）を、元のメッシュ（GunStand_Stump_Source）から作り直す。何度実行しても同じ結果。
+// エアブラスターの台の切り株（GunStand_Stump）を、元のメッシュ（GunStand_Stump_Source）から作り直す。何度実行しても同じ結果。
 // ・切り口のふちに、樹皮が少し盛り上がった「ふち」を一周つける（切り口の円盤と樹皮の間のすき間・ギザギザを隠す）
 // ・苔は元のもの（板の塊が重なっていてZファイト・飛び出しがあった）を全部消して、表面にぴったり沿うクッション状の苔を生やし直す。
 //   苔どうしは重ねない、キノコは避ける、ふちをまたぐ苔は角に沿って曲げる
@@ -15,7 +15,7 @@ public static class FuwaStumpRebuild
     const float CutY = 0.332f, RingY = 0.334f;
     const bool Lip = false;   // 切り口のふちの盛り上がり（2026-11-22 板を置いたように見えるのでやめた）
 
-    [MenuItem("FuwaCourse/済み（押す前に相談）/エアガンの台の切り株を作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/エアブラスターの台の切り株を作り直す")]
     public static void RunMenu() { Debug.Log(Run()); }
 
     class MB

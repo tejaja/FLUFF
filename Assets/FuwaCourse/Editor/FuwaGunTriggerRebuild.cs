@@ -3,7 +3,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-// エアガンのトリガーとトリガーガードを作り直す（2026-10-11 てじゃ「トリガーがただの伸ばした球なのが気になってきた」）
+// エアブラスターのトリガーとトリガーガードを作り直す（2026-10-11 てじゃ「トリガーがただの伸ばした球なのが気になってきた」）
 // ・トリガー（黄色、Gun_Accent に入っている）：横から見て前へ反った板。指がかかる前側がくぼみ、先は少し前へ反り返る。根元は銃身の中
 //   → FuwaGunCollarRebuild.Run（Gun_Accent_Source → Gun_Accent）の中で、古い球を消してこれを足す
 // ・ガード（茶色、Gun_Grip に入っている）：前は銃身の中から、トリガーの下をくぐって、後ろはグリップの前の面に刺さって終わる（切りっぱなしの端を見せない）
@@ -14,7 +14,7 @@ public static class FuwaGunTriggerRebuild
     const string GripSrcPath = "Assets/FuwaCourse/Meshes/Gun_Grip_Source.asset";
     const string GripDstPath = "Assets/FuwaCourse/Meshes/Gun_Grip.asset";
 
-    [MenuItem("FuwaCourse/済み（押す前に相談）/エアガンのトリガーとガードを作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/エアブラスターのトリガーとガードを作り直す")]
     public static void RunMenu()
     {
         Debug.Log(FuwaGunCollarRebuild.Run());   // トリガー（黄色の部品）はこの中で作る

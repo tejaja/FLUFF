@@ -3,7 +3,7 @@ using UdonSharpEditor;
 using UnityEditor;
 using UnityEngine;
 
-// エアガンの影をうそ影にする（2026-10-11 てじゃ「銃の影自体本物も含めて偽影にしちゃおう、スケール変更対応」）。
+// エアブラスターの影をうそ影にする（2026-10-11 てじゃ「銃の影自体本物も含めて偽影にしちゃおう、スケール変更対応」）。
 // ・みんなの銃（PlayerObject の FuwaBlower）：本物の影を切って、FuwaSystem/GunShadows（FuwaGunShadows）が真下にうそ影を置く
 // ・チュートリアルの見本の銃（DemoGun）：本物の影を切って、真下の地面に動かないうそ影の箱（Lane の子 GunShadow）
 // ・呼び寄せの時に飛ぶ銃（GunDecoy）：本物の影を切るだけ
@@ -15,7 +15,7 @@ public static class FuwaGunShadowSetup
     static readonly Vector2 Size = new Vector2(0.22f, 0.42f);
     const float Alpha = 0.45f;
 
-    [MenuItem("FuwaCourse/済み（押す前に相談）/エアガンの影をうそ影にする")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/エアブラスターの影をうそ影にする")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static Material Mat()

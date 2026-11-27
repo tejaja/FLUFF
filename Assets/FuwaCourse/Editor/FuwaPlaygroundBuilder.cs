@@ -9,7 +9,7 @@ using UnityEngine;
 // 島・キノコ・ふわふわの元は Prefabs/Playground のプレハブ（前は たいせんの部屋 FuwaVersusLobby からコピーしていた。たいせんは 2026-10-13 に削除）。
 // 島の真ん中にキノコ1本：撃つたびに今の設定のふわふわが出る（FuwaPlaygroundSpawner、FuwaSharedBall を Pool 個使い回す）。
 // キノコの左にスイッチ4つ（サイズ／カラー／上限数／地面に落ちたら消えるか）。設定はみんなで共通。
-// スポーン・エアガンの台・ワープ・遊び方の看板は FuwaPlayground の直下にあるものをそのまま使う。何度実行しても同じ結果
+// スポーン・エアブラスターの台・ワープ・遊び方の看板は FuwaPlayground の直下にあるものをそのまま使う。何度実行しても同じ結果
 public static class FuwaPlaygroundBuilder
 {
     const string RootName = "FuwaPlayground";
@@ -56,7 +56,7 @@ public static class FuwaPlaygroundBuilder
     //  → リング（床に平ら）と扇風機（その真上）は 22°、もどすボタンはカメラの球（-3°）の横 4°
     const float ResetAngle = 12f, ResetR = 0.75f, FanAngle = 22f, RingAngle = 22f;   // 2026-11-20 てじゃ「リセットは扇風機の後ろの柵あたり」（前は 4°・柵から 2.1m。そこは蓄音機に）   // もどすボタンは扇風機の真下（2026-10-13 てじゃ。前は設定ボードの右で「タイトルにもどる」にかぶって見えた）
     // 遊び方の看板の言語・音量ボタンはスイッチのボードの下（BoardButtons）
-    // 島の外の物（FuwaPlayground の直下。前は手で置いていた位置×島の大きさ）：スポーン、ワープ2つ、エアガンの台（2026-10-13 てじゃ「銃の台も真ん中に」→ キノコの右手前、スイッチの反対）
+    // 島の外の物（FuwaPlayground の直下。前は手で置いていた位置×島の大きさ）：スポーン、ワープ2つ、エアブラスターの台（2026-10-13 てじゃ「銃の台も真ん中に」→ キノコの右手前、スイッチの反対）
     // スポーンとワープは真ん中からの距離のまま（島を広げた分は入口の後ろの柵沿いがおもちゃの場所になる）
     static readonly Vector3 SpawnLocal = new Vector3(0f, 0f, -6.6f);
     // ワープの輪2つ（ハブへ ReturnToHub・チャレンジへ ToSolo）は見た目なし（2026-10-13 てじゃ「ボタンワープあるしポータルいらんかも」）。
@@ -207,7 +207,7 @@ public static class FuwaPlaygroundBuilder
             fso.ApplyModifiedPropertiesWithoutUndo(); Sync(fc);
         }
 
-        // エアガンで吹けるふわふわ：消えた物を外して、新しい玉を足す
+        // エアブラスターで吹けるふわふわ：消えた物を外して、新しい玉を足す
         foreach (var bl in Object.FindObjectsOfType<FuwaBlower>(true))
         {
             var bso = new SerializedObject(bl); var p = bso.FindProperty("sharedBalls");
@@ -304,7 +304,7 @@ public static class FuwaPlaygroundBuilder
         return string.Join("\n", log);
     }
 
-    // ---------- おもちゃ（2026-10-12 てじゃ「エアガンとは別の手持ち扇風機、空中固定化」「出しっぱなし」）----------
+    // ---------- おもちゃ（2026-10-12 てじゃ「エアブラスターとは別の手持ち扇風機、空中固定化」「出しっぱなし」）----------
     // コースのクリアで出てくるおもちゃの場所（島の真ん中から）：1竜巻 2岩 3重力 4ぬいぐるみ 5跳ねるキノコ。
     // 2026-10-13 並べ直し：ゴールリングの右から右回りに柵沿い、入口の真後ろまで。
     // 前は19°おき（2.7m）で、実際の広さ（竜巻の見た目 直径5.1m・重力の球4.4m・跳ねるキノコ2本で横6.4m・いばら＋まもの）が重なっていた（てじゃ「かぶってる」）。
@@ -325,7 +325,7 @@ public static class FuwaPlaygroundBuilder
         foreach (var a in g.GetComponentsInChildren<AudioSource>(true)) a.playOnAwake = false;
     }
 
-    // スポーン・ワープ・エアガンの台を島の大きさに合わせて置く（向きは前と同じ関係のまま）
+    // スポーン・ワープ・エアブラスターの台を島の大きさに合わせて置く（向きは前と同じ関係のまま）
     static void PlaceFixtures(Transform coop, Vector3 ac, float floorY)
     {
         Vector3 Ground(Vector3 local, Transform t) { return new Vector3(ac.x + local.x, t.position.y, ac.z + local.z); }
@@ -1413,7 +1413,7 @@ public static class FuwaPlaygroundBuilder
         var skc = sk.GetComponent<FuwaIceSkate>(); skc.ice = new Collider[] { mc }; skc.debugLog = false; UdonSharpEditorUtility.CopyProxyToUdon(skc);
     }
 
-    // 2–4 プロペラ＋歯車：柱の上のプロペラ（コース2–4 の風車の羽根）をエアガンで撃つと回り、床の歯車（大20枚・小12枚、コース2–4 の乗る歯車を小さく）がいっしょに回る（同期）
+    // 2–4 プロペラ＋歯車：柱の上のプロペラ（コース2–4 の風車の羽根）をエアブラスターで撃つと回り、床の歯車（大20枚・小12枚、コース2–4 の乗る歯車を小さく）がいっしょに回る（同期）
     public static float GearToyScale = 0.28f, GearToyRatio = 1f, GearToyLift = 0.55f;   // かさ歯車 1:1 なので小さい歯車はプロペラと同じ速さ
     // 2026-11-19 てじゃ「歯車の影がめっちゃチラつく」：回る歯車の歯の影が影の地図の細かさで点滅していた → 歯車本体は影を出さず、
     //  回らない円盤（影だけ、ShadowsOnly）を同じ所に置いて丸い影にする
@@ -2199,7 +2199,7 @@ public static class FuwaPlaygroundBuilder
         UdonSharpEditorUtility.CopyProxyToUdon(pl);
         { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(pl); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Continuous; EditorUtility.SetDirty(ub); } }
 
-        // エアガンで撃つと押し返せるように
+        // エアブラスターで撃つと押し返せるように
         foreach (var bl in Object.FindObjectsOfType<FuwaBlower>(true))
         {
             var so = new SerializedObject(bl); var p = so.FindProperty("plushes");
@@ -3011,8 +3011,8 @@ public static class FuwaPlaygroundBuilder
     // 遊び方の看板の文字（日本語・英語の切り替えにも登録してあるので両方書き換える）
     static void SetHowToText(TMPro.TextMeshPro t)
     {
-        const string ja = "<align=center><size=150%><color=#FF6B5C>ふわふわあそびば</color></size></align>\n<size=45%>\n</size><color=#FF6B5C>●</color><pos=1.1em>キノコの傘を撃つと、ふわふわが出てくる\n<pos=1.1em>みんなで吹いて、のんびり遊ぼう\n<size=45%>\n</size><color=#FF6B5C>●</color><pos=1.1em>スイッチで、サイズ・色・出せる数・\n<pos=1.1em>落ちたら消えるかを変えられる\n<pos=1.1em>（設定はみんなで共通）\n<size=45%>\n</size><color=#FF6B5C>●</color><pos=1.1em>巨大は重いので、みんなで押そう\n<size=45%>\n</size><color=#FF6B5C>●</color><pos=1.1em>{pc,vr|エアガンを手元に呼ぶ}{mo|エアガンは右上のボタンで呼べる}\n<pos=1.1em>{pc|Fキーを押す}{vr|右スティックを下に倒し続ける}{mo|（台をタップでも呼べる）}";
-        const string en = "<align=center><size=150%><color=#FF6B5C>Fluff Playground</color></size></align>\n<size=45%>\n</size><color=#FF6B5C>●</color><pos=1.1em>Shoot the mushroom cap to pop out a fluff\n<pos=1.1em>Blow them around together and relax\n<size=45%>\n</size><color=#FF6B5C>●</color><pos=1.1em>Switches change the size, color,\n<pos=1.1em>max count, and whether they pop on landing\n<pos=1.1em>(shared by everyone)\n<size=45%>\n</size><color=#FF6B5C>●</color><pos=1.1em>Giant ones are heavy: push together!\n<size=45%>\n</size><color=#FF6B5C>●</color><pos=1.1em>{pc,vr|Summon your air gun}{mo|Call your air gun: top-right button}\n<pos=1.1em>{pc|Press the F key}{vr|Hold the right stick down}{mo|(or tap a stand)}";
+        const string ja = "<align=center><size=150%><color=#FF6B5C>ふわふわあそびば</color></size></align>\n<size=45%>\n</size><color=#FF6B5C>●</color><pos=1.1em>キノコの傘を撃つと、ふわふわが出てくる\n<pos=1.1em>みんなで吹いて、のんびり遊ぼう\n<size=45%>\n</size><color=#FF6B5C>●</color><pos=1.1em>スイッチで、サイズ・色・出せる数・\n<pos=1.1em>落ちたら消えるかを変えられる\n<pos=1.1em>（設定はみんなで共通）\n<size=45%>\n</size><color=#FF6B5C>●</color><pos=1.1em>巨大は重いので、みんなで押そう\n<size=45%>\n</size><color=#FF6B5C>●</color><pos=1.1em>{pc,vr|エアブラスターを手元に呼ぶ}{mo|エアブラスターは右上のボタンで呼べる}\n<pos=1.1em>{pc|Fキーを押す}{vr|右スティックを下に倒し続ける}{mo|（台をタップでも呼べる）}";
+        const string en = "<align=center><size=150%><color=#FF6B5C>Fluff Playground</color></size></align>\n<size=45%>\n</size><color=#FF6B5C>●</color><pos=1.1em>Shoot the mushroom cap to pop out a fluff\n<pos=1.1em>Blow them around together and relax\n<size=45%>\n</size><color=#FF6B5C>●</color><pos=1.1em>Switches change the size, color,\n<pos=1.1em>max count, and whether they pop on landing\n<pos=1.1em>(shared by everyone)\n<size=45%>\n</size><color=#FF6B5C>●</color><pos=1.1em>Giant ones are heavy: push together!\n<size=45%>\n</size><color=#FF6B5C>●</color><pos=1.1em>{pc,vr|Summon your air blaster}{mo|Call your air blaster: top-right button}\n<pos=1.1em>{pc|Press the F key}{vr|Hold the right stick down}{mo|(or tap a stand)}";
         t.text = ja; EditorUtility.SetDirty(t);
         var lang = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault(); if (lang == null) return;
         int i = System.Array.IndexOf(lang.texts, t); if (i < 0) return;

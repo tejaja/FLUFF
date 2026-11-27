@@ -62,6 +62,6 @@ public class FuwaGunStand : UdonSharpBehaviour
     // FuwaLanguageから呼ばれる
     public void ApplyLanguage(bool english)
     {
-        InteractionText = english ? "Summon air gun" : "エアガンを呼ぶ";
+        InteractionText = english ? "Summon air blaster" : "エアブラスターを呼ぶ";
     }
 }

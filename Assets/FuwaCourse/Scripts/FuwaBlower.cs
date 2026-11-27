@@ -50,7 +50,7 @@ public class FuwaBlower : UdonSharpBehaviour
     public FuwaPhotoAlbum photoAlbum;
     [Tooltip("自分の道具を登録しておく先（ワープ時や台から呼び寄せるため）")]
     public FuwaRespawnManager manager;
-    [Tooltip("操作表示（発射・エアガン）の言語を合わせるため")]
+    [Tooltip("操作表示（発射・エアブラスター）の言語を合わせるため")]
     public FuwaLanguage language;
 
     [Header("風の強さ")]
@@ -316,7 +316,7 @@ public class FuwaBlower : UdonSharpBehaviour
         if (_pickup == null) _pickup = (VRCPickup)GetComponent(typeof(VRCPickup));
         if (_pickup == null) return;
         _pickup.UseText = english ? "Shoot / Charge" : "ショット / チャージ";   // 2026-10-19 Vket ブースとそろえて、長押しで溜められるのも手元で（前は看板のあそびかたに任せていた）
-        _pickup.InteractionText = english ? "Air Gun" : "エアガン";
+        _pickup.InteractionText = english ? "Air Blaster" : "エアブラスター";
     }
 
     public bool IsHeld() { return _held; }

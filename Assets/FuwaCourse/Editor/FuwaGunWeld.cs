@@ -3,7 +3,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-// エアガンのメッシュの「位置も法線も同じ」重複頂点をまとめる（見た目は1ピクセルも変わらない）。
+// エアブラスターのメッシュの「位置も法線も同じ」重複頂点をまとめる（見た目は1ピクセルも変わらない）。
 // 2026-10-16 てじゃ「銃4.2万はヤバイ」：Blender から書き出した部品・作り直した部品は三角形ごとに頂点がバラバラで、
 // 1丁 約4.2万頂点のうち 約2/3 が重複だった。頂点をCPU/GPUで処理する回数が減る（三角形の数は同じ）。
 // 作り直しのメニュー（FuwaGunCollarRebuild / FuwaGunTriggerRebuild）の最後でも呼ぶ。何度実行しても同じ結果
@@ -11,7 +11,7 @@ public static class FuwaGunWeld
 {
     public static readonly string[] Meshes = { "Gun_Accent", "Gun_Body", "Gun_Grip", "Gun_Bulb", "Gun_Vent" };
 
-    [MenuItem("FuwaCourse/済み（押す前に相談）/エアガンの重複頂点をまとめる")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/エアブラスターの重複頂点をまとめる")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static string Run()

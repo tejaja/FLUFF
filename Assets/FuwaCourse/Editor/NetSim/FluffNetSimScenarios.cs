@@ -8,7 +8,7 @@ using Haselab.NetSim;
 // レポートは Logs/NetSim/ に出る
 static class FluffNetSimScenarios
 {
-    // まずは様子見：2人入って、各クライアントにどんなエアガン・ゴーストが出ているかと、止まったUdonを書き出す
+    // まずは様子見：2人入って、各クライアントにどんなエアブラスター・ゴーストが出ているかと、止まったUdonを書き出す
     [NetSimScenario("fluff-explore")]
     static IEnumerator Explore(NetSimScenarioContext ctx)
     {

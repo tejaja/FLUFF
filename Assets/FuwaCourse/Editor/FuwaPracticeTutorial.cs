@@ -458,12 +458,12 @@ public static class FuwaPracticeTutorial
         return "barriers " + n;
     }
 
-    // 入口の島：エアガンの台の右（入口から見て）に「持ち方と呼び方」だけの看板（2026-10-09 てじゃ）
+    // 入口の島：エアブラスターの台の右（入口から見て）に「持ち方と呼び方」だけの看板（2026-10-09 てじゃ）
     // {vr|…}{pc|…}{mo|…} は使っている端末の分だけ出る（FuwaLanguage。2026-10-14 てじゃ）。スマホは画面右上のボタン（FuwaMobileGunButton）か台から呼ぶ
-    const string GunSignJa = "<size=130%><color=#FF6B5C>エアガン</color></size>\n{pc|手元に呼ぶ：Fキー}{vr|手元に呼ぶ：右スティック下}{mo|手元に呼ぶ：右上のボタン}\n台を{pc|クリック}{vr|トリガー}{mo|タップ}で台にもどる";
-    const string GunSignEn = "<size=130%><color=#FF6B5C>Air Gun</color></size>\n{pc|Call it: F key}{vr|Call it: hold right stick down}{mo|Call it: top-right button}\n{pc|Click}{vr|Trigger}{mo|Tap} the stand to send it back";
-    // 入口の島のエアガンの看板と台の場所（PlayerSpot から見て x=右・z=前、m）。ようこそ看板を読んでから取りに行く順（2026-10-12 てじゃ）
-    public static readonly Vector3 GunSignLocal = new Vector3(-1.4f, 0f, 7.1f);   // てじゃ「エアガンもうちょい奥」4.6→5.8→7.1（ようこそを正面4.2mにしたら近すぎた）
+    const string GunSignJa = "<size=130%><color=#FF6B5C>エアブラスター</color></size>\n{pc|手元に呼ぶ：Fキー}{vr|手元に呼ぶ：右スティック下}{mo|手元に呼ぶ：右上のボタン}\n台を{pc|クリック}{vr|トリガー}{mo|タップ}で台にもどる";
+    const string GunSignEn = "<size=130%><color=#FF6B5C>Air Blaster</color></size>\n{pc|Call it: F key}{vr|Call it: hold right stick down}{mo|Call it: top-right button}\n{pc|Click}{vr|Trigger}{mo|Tap} the stand to send it back";
+    // 入口の島のエアブラスターの看板と台の場所（PlayerSpot から見て x=右・z=前、m）。ようこそ看板を読んでから取りに行く順（2026-10-12 てじゃ）
+    public static readonly Vector3 GunSignLocal = new Vector3(-1.4f, 0f, 7.1f);   // てじゃ「エアブラスターもうちょい奥」4.6→5.8→7.1（ようこそを正面4.2mにしたら近すぎた）
     public static readonly Vector3 GunStandLocal = new Vector3(-0.35f, 0f, 6.75f);
 
     // 台と目印を GunStandLocal へ（高さはそのまま）
@@ -537,7 +537,7 @@ public static class FuwaPracticeTutorial
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(ent.gameObject.scene);
     }
 
-    [MenuItem("FuwaCourse/済み（押す前に相談）/れんしゅう/入口のエアガンの看板を作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/れんしゅう/入口のエアブラスターの看板を作り直す")]
     public static void GunSignMenu() { Debug.Log(MakeGunSign()); }
     public static string MakeGunSign()
     {
@@ -547,7 +547,7 @@ public static class FuwaPracticeTutorial
         var stand = ent.Find("GunStand_Tutorial"); var spot = ent.Find("PlayerSpot"); var ground = ent.Find("Ground").GetComponent<Renderer>().bounds;
         Vector3 dir = stand.position - spot.position; dir.y = 0; dir.Normalize();
         Vector3 right = Vector3.Cross(Vector3.up, dir).normalized;
-        // 2026-10-12 てじゃ「ようこそ→エアガンの順に、台の位置も変えて」：ようこその看板と場所を入れ替え。道に入ったとこの左、スポーンの方を向く
+        // 2026-10-12 てじゃ「ようこそ→エアブラスターの順に、台の位置も変えて」：ようこその看板と場所を入れ替え。道に入ったとこの左、スポーンの方を向く
         // （前の、てじゃが手で合わせた場所＝右へ1.793m・前へ2.641m・右へ50°は、ようこその看板が使う）
         Vector3 pos = spot.TransformPoint(GunSignLocal);
         var signSrc = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "BestTimes" && t.parent != null && t.parent.name == "FuwaLobby");
@@ -766,8 +766,8 @@ public static class FuwaPracticeTutorial
         return "wind side fence " + (s1 - s0).ToString("F1") + "m, posts " + (segs + 1);
     }
 
-    // 丸ごと作り直す。あとから足したメニューの分（区画の膜・風の範囲・入口のエアガンの看板・遠景の軽い形・軽い版）も続けてやる。
-    // 2026-10-10：RunCore だけで作り直したら膜・エアガンの看板・遠景の軽い形が消えて、看板の位置も古いのに戻っていた（てじゃが気づいた）
+    // 丸ごと作り直す。あとから足したメニューの分（区画の膜・風の範囲・入口のエアブラスターの看板・遠景の軽い形・軽い版）も続けてやる。
+    // 2026-10-10：RunCore だけで作り直したら膜・エアブラスターの看板・遠景の軽い形が消えて、看板の位置も古いのに戻っていた（てじゃが気づいた）
     public static string Run()
     {
         var log = RunCore();
