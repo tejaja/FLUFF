@@ -108,11 +108,11 @@ public static class FuwaQualitySwitchSetup
         head.text = HeadJa; head.enableAutoSizing = true; head.fontSizeMax = 177f; head.fontSizeMin = 60f;
         allTexts.Add((head, HeadJa, HeadEn));
         // 白い札
-        var pill = new GameObject("Pill", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image)); Rect(pill, new Vector2(190f, 0f), new Vector2(660f, 260f));
+        var pill = new GameObject("Pill", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image)); Rect(pill, new Vector2(245f, 0f), new Vector2(770f, 260f));   // 2026-11-27 てじゃ：右のすき間を上下と同じ 70 に（丸みを外枠と同心に）
         var pi = pill.GetComponent<Image>(); pi.sprite = srcPill.sprite; pi.type = srcPill.type; pi.pixelsPerUnitMultiplier = srcPill.pixelsPerUnitMultiplier;
         pi.color = srcPill.color; pi.material = srcPill.material; pi.raycastTarget = false;
         // ◀ ▶（おっかけカメラの矢印を写して、色だけボタンの色に）
-        foreach (var (nm, x, ch) in new[] { ("ArrowL", -95f, "◀"), ("ArrowR", 475f, "▶") })
+        foreach (var (nm, x, ch) in new[] { ("ArrowL", -95f, "◀"), ("ArrowR", 585f, "▶") })
         {
             var a = Text(srcArrow, nm, new Vector2(x, 4f), new Vector2(120f, 400f)); a.text = ch; a.color = BtnColor;
         }
@@ -120,7 +120,7 @@ public static class FuwaQualitySwitchSetup
         var texts = new TextMeshProUGUI[3];
         for (int i = 0; i < 3; i++)
         {
-            var t = Text(srcText, "Text" + i, new Vector2(190f, 0f), new Vector2(440f, 400f));
+            var t = Text(srcText, "Text" + i, new Vector2(245f, 0f), new Vector2(440f, 400f));
             t.text = Ja[i]; t.enableAutoSizing = false; t.fontSize = 165f; t.color = BtnColor * new Color(0.85f, 0.85f, 0.85f, 1f); t.enabled = i == 1;
             texts[i] = t; allTexts.Add((t, Ja[i], En[i]));
         }
