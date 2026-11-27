@@ -430,6 +430,7 @@ public static class FuwaTutorialChallenge
         hb.GetComponent<Renderer>().sharedMaterial = sign.Find("SignModel").GetComponent<Renderer>().sharedMaterials.Skip(1).FirstOrDefault() ?? hb.GetComponent<Renderer>().sharedMaterial;
         hb.transform.localRotation = Quaternion.identity;
         AddLang(lang, hint, hintJa, hintEn);
+        FuwaTutorialHintNote.Style(hint);   // 2026-11-27 コツは小さいメモ紙（うすい黄色・ピンどめ・少し左で傾け）
         // 動き
         var goal = UdonSharpUndo.AddComponent<FuwaTutorialGoal>(ring);
         goal.ball = ball; goal.trySpot = spot; goal.ringRenderers = rr ? new Renderer[] { rr } : new Renderer[0]; goal.ringMat = mRing; goal.clearMat = mClear; goal.monster = monster;
