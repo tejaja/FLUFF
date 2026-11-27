@@ -32,6 +32,8 @@ public class FuwaPlaygroundBubbleClam : UdonSharpBehaviour
     public float captureRadius = 0.55f;
     [Tooltip("ふつうの玉の大きさ。これより大きい玉は、包む距離・泡の大きさを同じ倍率で大きく")]
     public float refBallSize = 0.3f;
+    [Tooltip("包んだ泡の大きさ：玉の大きさのこの倍（ふつうの泡より小さくはしない）")]
+    public float heldBubbleRatio = 1.8f;
     [Tooltip("泡を置いておく、動かない親（空なら貝の親の親）")]
     public Transform bubbleRoot;
     [Tooltip("泡の位置へ寄せる強さ（1/s²）と動きをそろえる強さ（1/s）")]
@@ -135,7 +137,7 @@ public class FuwaPlaygroundBubbleClam : UdonSharpBehaviour
             // 2026-11-28 てじゃ「泡つつみもふわふわの大きさに」：包んでいる玉がふつう（refBallSize）より大きければ、泡もその倍率に
             float bk = 1f;
             if (_held[s] >= 0 && spawner != null && spawner.balls != null && _held[s] < spawner.balls.Length && spawner.balls[_held[s]] != null)
-                bk = Mathf.Max(1f, spawner.balls[_held[s]].transform.lossyScale.x / Mathf.Max(0.01f, refBallSize));
+                bk = Mathf.Max(1f, spawner.balls[_held[s]].transform.lossyScale.x * heldBubbleRatio / Mathf.Max(0.01f, bubbleSize));   // 2026-11-28 てじゃ「デカすぎかも」：玉の大きさに比例（3倍）→ 玉より少し大きいくらい
             b.localScale = Vector3.one * bubbleSize * (0.4f + 0.6f * grow) * bk;
         }
     }
@@ -167,7 +169,7 @@ public class FuwaPlaygroundBubbleClam : UdonSharpBehaviour
                     bool mine = Networking.IsOwner(ball.gameObject);
                     // 包むかは玉の持ち主の画面だけで決める。ほかの画面は「持ち主の画面で包まれている」と届いた玉を、いちばん近い泡で運ぶ
                     if (mine ? Time.time < _freeUntil[i] : !ball.BubbledSynced()) continue;
-                    float cr = captureRadius * Mathf.Max(1f, ball.transform.lossyScale.x / Mathf.Max(0.01f, refBallSize));
+                    float cr = captureRadius * Mathf.Max(1f, ball.transform.lossyScale.x * heldBubbleRatio / Mathf.Max(0.01f, bubbleSize));
                     if (!mine) cr *= 3f;   // 位置が少しずれていても拾う
                     if ((ball.transform.position - bp).sqrMagnitude < cr * cr) { if (mine) ball.SetBubbled(true); _held[s] = i; _heldAt[s] = t; if (captureSound != null) { captureSound.transform.position = bp; captureSound.Play(); } break; }
                 }
