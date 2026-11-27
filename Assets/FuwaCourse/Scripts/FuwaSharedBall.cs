@@ -173,7 +173,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
     public void Ignite()
     {
         Init();
-        if (_waiting || _popped || !Networking.IsOwner(gameObject) || _sBurnAt > 0.0) return;
+        if (_waiting || _popped || !Networking.IsOwner(gameObject) || _sBurnAt > 0.0 || Charring()) return;
         _sBurnAt = Networking.GetServerTimeInSeconds();
         _douse = 0f;
         _sendSoon = true;
@@ -188,6 +188,12 @@ public class FuwaSharedBall : UdonSharpBehaviour
     public AudioSource sfxChar;
     private bool _charred;
     private Color _preColor, _preTip;
+    // 2026-11-28 てじゃ「炎上や泡をくり返すと、燃えたまま・焦げたまま死なない玉が出て、位置の同期も狂う」：
+    //  前は持ち主の画面だけ玉を固定（isKinematic）して、0.7秒後に「はじけろ」を予約していた → 途中で持ち主が替わる・撃たれると、
+    //  はじけないまま固定された玉が残り、ほかの画面で泡・竜巻に動かされても持ち主の止まった位置へ引き戻されていた。
+    //  → 黒焦げになった時刻を同期（_sCharAt、0＝なし）。全員の画面で速さ0で止め（固定はしない）、時間が来たら今の持ち主がはじく
+    [UdonSynced] private double _sCharAt;
+    private bool Charring() { return _sCharAt > 0.0 && !_waiting && !_popped; }
     // 全員：黒くする（弾けて隠れた時に元の色へ戻す＝ApplyHiddenVisual）
     public void PlayChar()
     {
@@ -226,13 +232,21 @@ public class FuwaSharedBall : UdonSharpBehaviour
             {
                 // 2026-11-27 てじゃ「あそびばでふわふわが炎上したあと、燃え尽きる時に丸焦げ演出がない」：コース（FuwaBall.FailByBurn）と同じく、黒焦げ→一瞬止まる→はじける
                 _sBurnAt = 0.0;
-                _rb.velocity = Vector3.zero; _rb.angularVelocity = Vector3.zero; _rb.isKinematic = true;
+                _sCharAt = Networking.GetServerTimeInSeconds();
+                _rb.velocity = Vector3.zero; _rb.angularVelocity = Vector3.zero;
                 _sendSoon = true;
-                SendCustomNetworkEvent(NetworkEventTarget.All, nameof(PlayChar));
-                SendCustomEventDelayedSeconds(nameof(CharPop), charFreezeTime);
             }
         }
-        bool show = _sBurnAt > 0.0 && !_waiting && !_popped && _here;
+        if (owner && _sCharAt > 0.0)
+        {
+            if (_waiting || _popped) _sCharAt = 0.0;
+            else if (Networking.GetServerTimeInSeconds() - _sCharAt > charFreezeTime) Pop();
+        }
+        // 黒焦げの見た目（全員：同期された時刻で）
+        bool ch = Charring() && _here;
+        if (ch && !_charred) PlayChar(); else if (!ch && _charred) UnChar();
+        // 燃えている見た目（全員）。持ち主から「消えた」が届かないままでも、燃えつきる時間を大きく過ぎたら消す
+        bool show = _sBurnAt > 0.0 && !_waiting && !_popped && _here && !ch && Networking.GetServerTimeInSeconds() - _sBurnAt < burnGrace + 3.0;
         if (show != _burnShown)
         {
             _burnShown = show;
@@ -501,7 +515,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
     private void SetWaiting()
     {
         _shotCharge = 0f; _shotDir = Vector3.zero; _shotAt = -100.0;
-        _sBurnAt = 0.0;
+        _sBurnAt = 0.0; _sCharAt = 0.0;
         _waiting = true;
         _popped = false;
         _respawnAt = -1f;
@@ -525,7 +539,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
     public void BlowShared(Vector3 velocityChange, float charge)
     {
         Init();
-        if (_popped || _waiting || locked) return;   // キノコに隠れている間は、傘を撃たないと出てこない
+        if (_popped || _waiting || locked || Charring()) return;   // キノコに隠れている間は、傘を撃たないと出てこない（黒焦げで止まっている間も受け付けない）
         Shoot(velocityChange * shotScale, false, charge);
     }
 
@@ -569,7 +583,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
     public void RemoteShot(Vector3 velocityChange, bool release, float charge)
     {
         Init();
-        if (!Networking.IsOwner(gameObject) || _popped || locked) return;
+        if (!Networking.IsOwner(gameObject) || _popped || locked || Charring()) return;
         if (_waiting && !release) return;   // 持ち主の画面ではまだキノコの中：傘を撃った分だけ受け付ける
         if (_waiting) MarkRelease();
         Launch(velocityChange);
@@ -826,7 +840,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
     public void Nudge(Vector3 velocityChange)
     {
         Init();
-        if (_waiting || _popped || _rb.isKinematic) return;
+        if (_waiting || _popped || _rb.isKinematic || Charring()) return;
         _rb.velocity = _rb.velocity + velocityChange;
         PlayPuff(Mathf.Clamp01(velocityChange.magnitude / Mathf.Max(0.01f, squashFullAt)));
         if (Networking.IsOwner(gameObject)) _sendSoon = true;
@@ -836,6 +850,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
     {
         UpdateHere();   // エリアを離れた直後の物理の1回で、消えた床を抜けて落ちないように
         if (_waiting || _popped || _rb.isKinematic) { _wind = Vector3.zero; return; }
+        if (Charring()) { _rb.velocity = Vector3.zero; _rb.angularVelocity = Vector3.zero; _wind = Vector3.zero; _gravScale = 0f; return; }   // 黒焦げで止まっている間（全員）
         // 全員の画面で同じ決まりで動かす（持ち主でなくても）
         float g = _gravScale > 0f ? _gravScale : 1f;
         _gravScale = 0f;
@@ -883,6 +898,8 @@ public class FuwaSharedBall : UdonSharpBehaviour
         {
             if (_here && !_waiting && !_popped && transform.position.y < _homePos.y - fallLimit) SetWaiting();
             if (_popped && _respawnAt > 0f && Time.time >= _respawnAt) SetWaiting();
+            // 見張り：エリアにいて飛んでいるのに固定のまま（前の作りの黒焦げ・入れ替わりの残り）なら、動けるように戻す
+            if (_here && !_waiting && !_popped && _rb.isKinematic) { _rb.isKinematic = false; _sendSoon = true; }
             // チルルーム：床に転がっている間に「消える」へ切り替えた（ぶつかった瞬間はもう過ぎている）ので、床に触れていたらはじける
             if (_here && playground != null && !_waiting && !_popped && !_rb.isKinematic && playground.PopGround() && GroundPopAllowed() && TouchingPopGround()) Pop();
             // 弾けたまま戻す予定が無い（弾けている間に持ち主が入れ替わった）なら、ここで戻す予定を立てる
@@ -1027,6 +1044,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
     {
         // 床に落ちたかどうかは持ち主の画面で決める
         _popped = true;
+        _sCharAt = 0.0; _sBurnAt = 0.0;
         _respawnAt = Time.time + respawnDelay;
         _rb.isKinematic = true;
         RequestSerialization();
