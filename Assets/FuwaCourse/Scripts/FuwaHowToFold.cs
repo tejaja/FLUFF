@@ -38,6 +38,8 @@ public class FuwaHowToFold : UdonSharpBehaviour
     public string titleEn = "How to Play";
     [Tooltip("2026-11-17 てじゃ「展開したあとの高さ、もうちょい低く」「展開前はそのまま」：開いた時、板のまん中をこれだけ下げる（看板のローカルの y）。本文・×・開いた見出しの位置は、はじめから下げた所に置いてある")]
     public float openLower = 0f;
+    [Tooltip("たたんだ時は板（panel・border）を消す（たたんだ帯は whenClosed のUIボタンが見た目も兼ねる）")]
+    public bool hidePanelWhenClosed = false;
     private float _panelY0, _borderY0;
 
     private float _p;        // 0=たたむ 1=開く
@@ -130,5 +132,11 @@ public class FuwaHowToFold : UdonSharpBehaviour
         bool open = _p >= 1f, closed = _p <= 0f;
         if (whenOpen != null && whenOpen.activeSelf != open) whenOpen.SetActive(open);
         if (whenClosed != null && whenClosed.activeSelf != closed) whenClosed.SetActive(closed);
+        // 2026-11-27 てじゃ「展開前のボードとボタンの仕組みが違うのが問題」：たたんだ時は板を消して、隣と同じUIのボタン（whenClosed）だけ見せる
+        if (hidePanelWhenClosed)
+        {
+            if (panel != null && panel.enabled == closed) panel.enabled = !closed;
+            if (border != null && border.enabled == closed) border.enabled = !closed;
+        }
     }
 }

@@ -14,6 +14,60 @@ public static class FuwaHowToFoldSetup
     [MenuItem("FuwaCourse/済み（押す前に相談）/ロビーのあそびかたをたためるようにする")]
     public static void Menu() { Debug.Log(Run()); }
 
+    // 2026-11-27 てじゃ「展開前のボードとボタンの仕組みが違うのが問題」「ボードの白い部分をベージュ、ハイライトを白に」：
+    //  たたんだ帯を、隣のボタンと同じUIのボタン（Fuwa/UIGradient）で作る。オレンジのふち（Button の画像）＋ベージュの中身（Inner、色の変化はこっち）。
+    //  たたんだ時は板（Panel・Border）を消す（FuwaHowToFold.hidePanelWhenClosed）。大きさ・丸みは たたんだ板とふちにそろえる
+    public static readonly Color Beige = new Color(1f, 0.953f, 0.878f, 0.92f);
+    public static readonly Color BorderCol = new Color(1f, 0.549f, 0.42f, 1f);
+
+    [MenuItem("FuwaCourse/済み（押す前に相談）/ロビーのあそびかた：たたんだ帯をUIボタンにする")]
+    public static void MenuClosedButton()
+    {
+        var h = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "HowToPlay" && t.parent != null && t.parent.name == "FuwaLobby");
+        MakeClosedButton(h, h.Find("FoldOpen").gameObject);
+        var fold = h.GetComponent<FuwaHowToFold>(); fold.hidePanelWhenClosed = true; UdonSharpEditorUtility.CopyProxyToUdon(fold); EditorUtility.SetDirty(fold);
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(h.gameObject.scene);
+        Debug.Log("あそびかた：たたんだ帯をUIボタンにした");
+    }
+
+    public static void MakeClosedButton(Transform h, GameObject open)
+    {
+        var panel = h.Find("Panel").GetComponent<SpriteRenderer>();
+        var border = h.Find("Border").GetComponent<SpriteRenderer>();
+        panel.color = Beige; EditorUtility.SetDirty(panel);   // 開いた板もベージュに
+        var spr = panel.sprite;
+        float bLen = spr.border.y / spr.pixelsPerUnit;                       // 板の丸み（m、看板のローカル）
+        float thick = (border.size.x * border.transform.localScale.x - panel.size.x) * 0.5f;   // ふちの太さ
+        float rIn = bLen, rOut = bLen * border.transform.localScale.y;
+        var canvas = (RectTransform)open.transform.Find("Canvas");
+        float k = canvas.lossyScale.x / h.lossyScale.x;   // キャンバス1単位＝看板のローカル何m
+        var btn = open.GetComponentInChildren<UnityEngine.UI.Button>(true);
+        var frame = btn.GetComponent<UnityEngine.UI.Image>();
+        var src = h.Find("TogetherButton").GetComponentInChildren<UnityEngine.UI.Button>(true).GetComponent<UnityEngine.UI.Image>();
+        // 位置：板と同じ所。奥行きは見出し（FoldTitle、z −0.002）より奥・板（+0.03）より手前
+        open.transform.localPosition = new Vector3(panel.transform.localPosition.x, panel.transform.localPosition.y, 0.01f);
+        float W = panel.size.x + thick * 2f, H = ClosedH + thick * 2f;
+        canvas.sizeDelta = new Vector2(W / k, H / k);
+        var bc = canvas.GetComponent<BoxCollider>(); bc.size = new Vector3(canvas.sizeDelta.x, canvas.sizeDelta.y, bc.size.z); bc.center = Vector3.zero;
+        float ppuRef = spr.pixelsPerUnit / 100f;   // キャンバスの referencePixelsPerUnit = 100
+        // ふち（押す所も兼ねる）
+        frame.sprite = src.sprite; frame.type = UnityEngine.UI.Image.Type.Sliced; frame.material = src.material; frame.raycastTarget = true;
+        frame.color = BorderCol;
+        frame.pixelsPerUnitMultiplier = spr.border.y / ppuRef / (rOut / k);
+        // 中身（ベージュ、ハイライトはここ）
+        var innerT = btn.transform.Find("Inner");
+        if (innerT == null) { var g = new GameObject("Inner", typeof(RectTransform), typeof(CanvasRenderer), typeof(UnityEngine.UI.Image)); innerT = g.transform; innerT.SetParent(btn.transform, false); innerT.SetAsFirstSibling(); }
+        var irt = (RectTransform)innerT; irt.anchorMin = irt.anchorMax = new Vector2(0.5f, 0.5f); irt.anchoredPosition3D = new Vector3(0f, 0f, -3f) /* ふちと同じ奥行きだとふちに負けるので少し手前 */; irt.sizeDelta = new Vector2(panel.size.x / k, ClosedH / k); irt.localRotation = Quaternion.identity; irt.localScale = Vector3.one;
+        var inner = innerT.GetComponent<UnityEngine.UI.Image>();
+        inner.sprite = src.sprite; inner.type = UnityEngine.UI.Image.Type.Sliced; inner.material = src.material; inner.raycastTarget = false; inner.color = Color.white;
+        inner.pixelsPerUnitMultiplier = spr.border.y / ppuRef / (rIn / k);
+        btn.targetGraphic = inner; btn.transition = UnityEngine.UI.Selectable.Transition.ColorTint;
+        var cb = btn.colors;
+        cb.normalColor = Beige; cb.highlightedColor = new Color(1f, 1f, 1f, 1f); cb.pressedColor = new Color(Beige.r * 0.9f, Beige.g * 0.9f, Beige.b * 0.9f, 1f);
+        cb.selectedColor = Beige; cb.disabledColor = Beige; cb.colorMultiplier = 1f; cb.fadeDuration = 0.1f; btn.colors = cb;
+        foreach (var o in new Object[] { open.transform, canvas, bc, frame, inner, btn, irt }) EditorUtility.SetDirty(o);
+    }
+
     public static string Run()
     {
         var h = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "HowToPlay" && t.parent != null && t.parent.name == "FuwaLobby");
@@ -167,6 +221,8 @@ public static class FuwaHowToFoldSetup
             }
         }
 
+        MakeClosedButton(h, open);
+        fold.hidePanelWhenClosed = true;
         fold.panel = panel; fold.border = border; fold.body = body; fold.title = title; fold.language = lang;
         fold.titleT = title.transform; fold.titleGo = title.gameObject; fold.bodyGo = body.gameObject;
         fold.whenClosed = open; fold.whenOpen = close;
