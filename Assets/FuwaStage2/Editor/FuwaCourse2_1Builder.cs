@@ -1172,6 +1172,21 @@ public static class FuwaCourse2_1Builder
         {
             foreach (var nm in new[] { "Body", "RimL", "RimR", "RimStart", "RimL_Rock", "RimR_Rock", "RimStart_Rock" }) { var t = src0.Find(nm); if (t && t.GetComponent<Renderer>()) t.GetComponent<Renderer>().enabled = false; }
             var bed0 = src0.Find("Bed"); if (bed0 && bed0.GetComponent<Renderer>()) bed0.GetComponent<Renderer>().sharedMaterial = RockBaseMat();
+            // 2026-11-27 てじゃ「スタート直後の洞窟、入口の上のほうに見えない壁」：水源の池の入れ物（Body、見た目なし）の当たりが 1m 厚くて、洞窟の天井（CaveRoof）より 0.7m 下まで出ていた → 当たりだけ天井の下面で切る
+            {
+                var bodyT = src0.Find("Body"); var roofT = terr.Find("CaveRoof");
+                var bmc = bodyT ? bodyT.GetComponent<MeshCollider>() : null;
+                if (bmc && bmc.sharedMesh && roofT && roofT.GetComponent<Collider>())
+                {
+                    float roofBot = roofT.GetComponent<Collider>().bounds.min.y;
+                    var bv = bmc.sharedMesh.vertices;
+                    for (int i = 0; i < bv.Length; i++) { var w = bodyT.TransformPoint(bv[i]); if (w.y < roofBot) { w.y = roofBot; bv[i] = bodyT.InverseTransformPoint(w); } }
+                    var cm = new Mesh { name = "W0_Source_Body_Col" }; cm.vertices = bv; cm.triangles = bmc.sharedMesh.triangles; cm.RecalculateNormals(); cm.RecalculateBounds();
+                    const string cp = "Assets/FuwaStage2/Generated/Course2_1/W0_Source_Body_Col.asset";
+                    if (AssetDatabase.LoadAssetAtPath<Mesh>(cp)) AssetDatabase.DeleteAsset(cp);
+                    AssetDatabase.CreateAsset(cm, cp); bmc.sharedMesh = cm;
+                }
+            }
             SourceSurfaceToBasin(src0, go.GetComponent<MeshCollider>());
         }
         Spring(terr, new Vector3(0f, SourceSurf, 1.6f));
