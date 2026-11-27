@@ -801,6 +801,8 @@ public class FuwaBlower : UdonSharpBehaviour
     //  撃った・溜めの演出（粒・音）を止める。見た目が消えるので銃のうそ影（FuwaGunShadows は IsGunShown を見る）も出ない
     [Tooltip("他の人の銃がこれより遠いと、見た目・演出・毎フレームの計算を止める(m)。0 で止めない")]
     public float remoteFarDist = 30f;
+    [Tooltip("おっかけカメラ（映している人の銃は遠くても演出を出す）")]
+    public FuwaFollowCam followCam;
     private bool _far;
     private int _farCheck;
     private void UpdateFar()
@@ -815,6 +817,13 @@ public class FuwaBlower : UdonSharpBehaviour
             {
                 float d = Vector3.Distance(me.GetPosition(), transform.position);
                 far = _far ? d > remoteFarDist - 3f : d > remoteFarDist;   // 行ったり来たりしないよう 3m の幅
+                // 2026-11-28 てじゃ「遠いと銃のエフェクトが消えるので、おっかけカメラで映している人の分は見えるように」
+                if (far && followCam != null)
+                {
+                    int w = followCam.GetWatchedRunningId();
+                    VRCPlayerApi o = Networking.GetOwner(gameObject);
+                    if (w >= 0 && o != null && o.IsValid() && o.playerId == w) far = false;
+                }
             }
         }
         if (far == _far) return;

@@ -387,6 +387,8 @@ public class FuwaFollowCam : UdonSharpBehaviour
 
     // 今映している人（-1＝自分）
     public int GetTargetId() { return _targetId; }
+    // 今モニター・カメラに映している最中の人の playerId（映していない時は -2、自分は -1）。他の人の銃は遠いと演出を止めるが、映している人の分は出す（FuwaBlower）
+    public int GetWatchedRunningId() { return _running ? _targetId : -2; }
 
     private void UpdateLabels()
     {
