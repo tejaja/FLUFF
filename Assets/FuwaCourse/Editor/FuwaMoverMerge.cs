@@ -134,7 +134,8 @@ public static class FuwaMoverMerge
             if (r.name.StartsWith("__Merged_") || Blocked(r.transform)) continue;
             // あそびばのドームのふちの輪（Locked*/Rim）は FuwaPlaygroundUnlocks が名前で探してふたといっしょに開くので、まとめない
             //（2026-11-27 てじゃ「ドームが開くアニメーションが2種類ある」：まとめた所だけ輪が動かず、透明なふただけ開いていた）
-            if (r.name == "Rim" && r.transform.parent != null && r.transform.parent.name.StartsWith("Locked")) continue;
+            //  看板（Locked*/Sign の下のクッション・ふち）も同じく、解放の時に看板ごと縮むので（まとめると根もとへ縮んで下へ消えていた。2026-11-27）→ Locked* の下は全部まとめない
+            { bool inLocked = false; for (var p = r.transform.parent; p != null; p = p.parent) if (p.name.StartsWith("Locked") && p.parent != null && p.parent.name == "Toys") { inLocked = true; break; } if (inLocked) continue; }
             var mover = r.transform; while (!IsMover(mover)) mover = mover.parent;
             // 自分自身が mover（スクリプトが回す歯車そのもの）でも、その子の部品と一緒にまとめてよい（まとめた物は mover の子なので一緒に回る）
             var key = (mover, r.gameObject.layer, r.shadowCastingMode, r.receiveShadows, fsOf.TryGetValue(r, out var fs0) ? fs0 : null);
