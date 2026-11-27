@@ -103,7 +103,18 @@ public static class FuwaHowToFoldSetup
             so.ApplyModifiedPropertiesWithoutUndo();
             var tm = g.GetComponentInChildren<TMPro.TextMeshProUGUI>(true); tm.text = text;
             if (lang != null) { int li = System.Array.IndexOf(lang.uiTexts, tm); if (li >= 0) { var ls = new SerializedObject(lang); var pa = ls.FindProperty("uiTexts"); pa.GetArrayElementAtIndex(li).objectReferenceValue = null; ls.ApplyModifiedPropertiesWithoutUndo(); } }
-            if (invisible) { var img = btn.GetComponent<UnityEngine.UI.Image>(); var col = img.color; col.a = 0f; img.color = col; }
+            if (invisible)
+            {
+                // 2026-11-27 てじゃ「隣のボタンはレーザーでハイライトされるのに、あそびかたはされない」：
+                //  ふだんは透明、レーザーが当たるとふちのオレンジがうっすら（色の変化で透明度を変える）。角の丸みは板と同じ 0.25m、奥行きは書かない材質
+                var img = btn.GetComponent<UnityEngine.UI.Image>();
+                img.color = new Color(1f, 0.549f, 0.42f, 1f);
+                img.pixelsPerUnitMultiplier = 0.1f;
+                img.material = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/UIIconCullBack.mat");
+                var cb = btn.colors; cb.normalColor = new Color(1f, 1f, 1f, 0f); cb.highlightedColor = new Color(1f, 1f, 1f, 0.16f); cb.pressedColor = new Color(1f, 1f, 1f, 0.28f);
+                cb.selectedColor = cb.normalColor; cb.disabledColor = cb.normalColor; cb.colorMultiplier = 1f; btn.colors = cb;
+                btn.transition = UnityEngine.UI.Selectable.Transition.ColorTint;
+            }
             return g;
         }
         var open = Btn("FoldOpen", new Vector3(0f, CenterY, -0.03f), new Vector2(panelW, ClosedH), "", "Open", true);

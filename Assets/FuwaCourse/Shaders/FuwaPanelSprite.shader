@@ -20,10 +20,13 @@ Shader "Fuwa/PanelSprite"
         //  _GradSelf=1 なら自分の色を掛ける（濃く・あざやかに。色の枠向け）、0 なら _GradColor を掛ける（白い板向け、うすい青むらさき）
         _GradColor ("Gradient Shade Color", Color) = (0.8, 0.82, 0.96, 1)
         _GradSelf ("Gradient Self Tint (0=_GradColor, 1=自分の色)", Range(0, 1)) = 0
+        // 2026-11-27 てじゃ「閉じた時はグラデくっきり、開くと分かりづらい」：真ん中だけでなく板の上はし〜下はし全体でかける。
+        //  9分割の頂点から板の高さを出す（ふちの頂点は uv のはしからの距離 × 絵の高さ(単位) だけ内側）。絵の高さ＝テクスチャ px ÷ ppu
+        _TexUnits ("Sprite Texture Height (units)", Float) = 1
     }
     SubShader
     {
-        Tags { "Queue"="Transparent-10" "RenderType"="Transparent" "IgnoreProjector"="True" "PreviewType"="Plane" "CanUseSpriteAtlas"="True" }
+        Tags { "Queue"="Transparent-10" "RenderType"="Transparent" "IgnoreProjector"="True" "PreviewType"="Plane" "CanUseSpriteAtlas"="True" "DisableBatching"="True" }
         Cull [_Cull]
         ZWrite On
         Offset [_OffsetFactor], [_OffsetUnits]
@@ -42,6 +45,7 @@ Shader "Fuwa/PanelSprite"
             fixed4 _Color;
             fixed _Cutoff;
             half _Grad, _GradBorder, _GradSelf;
+            float _TexUnits;
             fixed4 _GradColor;
 
             struct appdata
@@ -57,6 +61,7 @@ Shader "Fuwa/PanelSprite"
                 float4 pos : SV_POSITION;
                 float2 uv : TEXCOORD0;
                 fixed4 color : COLOR;
+                float gt : TEXCOORD2;   // 板の下はし 0 〜 上はし 1
                 UNITY_FOG_COORDS(1)
                 UNITY_VERTEX_OUTPUT_STEREO
             };
@@ -69,6 +74,8 @@ Shader "Fuwa/PanelSprite"
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = v.uv;
                 o.color = v.color * _Color;
+                float halfH = abs(v.vertex.y) + min(v.uv.y, 1 - v.uv.y) * _TexUnits;   // 真ん中が原点の板
+                o.gt = saturate(v.vertex.y / max(1e-4, halfH) * 0.5 + 0.5);
                 UNITY_TRANSFER_FOG(o, o.pos);
                 return o;
             }
@@ -76,7 +83,7 @@ Shader "Fuwa/PanelSprite"
             fixed4 frag (v2f i) : SV_Target
             {
                 fixed4 c = tex2D(_MainTex, i.uv) * i.color;
-                half gt = saturate((i.uv.y - _GradBorder) / max(1e-3, 1 - 2 * _GradBorder));   // 下 0 〜 上 1
+                half gt = i.gt;   // 下 0 〜 上 1（板全体。前は 9分割の真ん中だけ：(uv.y - _GradBorder) / (1 - 2 _GradBorder)）
                 half3 shade = lerp(_GradColor.rgb, c.rgb, _GradSelf);   // 影の色（掛ける）
                 c.rgb *= lerp(half3(1, 1, 1), shade, _Grad * (1 - gt));
                 // 角丸の外側（ほぼ透明な所）は捨てて、奥行きも書かない
