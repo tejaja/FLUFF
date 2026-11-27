@@ -652,9 +652,49 @@ public static class FuwaPlaygroundBuilder
         return (ts, ls);
     }
     // 2026-11-16 てじゃ「クリアフラグ持ちはおもちゃ予定地のドームをUSEすると解放できる」：看板の文とドームのさわる仕組み
-    // てじゃ「クリアするとつかえるよ、がいいな」
-    static string UnlockJa(int stage, int i, string name) { return "コース" + stage + "–" + (i + 1) + "「" + name + "」を\nクリアすると つかえるよ"; }
-    static string UnlockEn(int stage, int i, string name) { return "Clear Course " + stage + "–" + (i + 1) + "\n" + name + " to use"; }
+    // てじゃ「クリアするとつかえるよ、がいいな」→ 2026-11-27「クリアすると アンロック」（レーザーの文字も かいほう→アンロック）
+    static string UnlockJa(int stage, int i, string name) { return "コース" + stage + "–" + (i + 1) + "「" + name + "」を\nクリアすると アンロック"; }
+    static string UnlockEn(int stage, int i, string name) { return "Clear Course " + stage + "–" + (i + 1) + "\n" + name + " to unlock"; }
+    const string UnlockInteract = "アンロック";
+    // 2026-11-27 てじゃ「看板までUSEできる判定ほしい」：ドームの上の看板（Sign）の大きさの、すり抜ける当たり（トリガー）を同じ物につける（Interact はその物の当たり全部で効く）
+    public static void AddSignInteract(GameObject lroot)
+    {
+        foreach (var old in lroot.GetComponents<BoxCollider>()) Object.DestroyImmediate(old);
+        var sign = lroot.transform.Find("Sign"); if (sign == null) return;
+        var cu = sign.Find("Cushion"); var mf = cu != null ? cu.GetComponent<MeshFilter>() : null; if (mf == null || mf.sharedMesh == null) return;
+        var b = mf.sharedMesh.bounds;
+        var bc = lroot.AddComponent<BoxCollider>(); bc.isTrigger = true;
+        bc.center = lroot.transform.InverseTransformPoint(cu.TransformPoint(b.center));
+        bc.size = Vector3.Scale(b.size, cu.lossyScale) + new Vector3(0.06f, 0.06f, 0.1f);
+    }
+
+    // シーンの今の看板（Locked1〜11）だけ直す：文を アンロック に、レーザーの文字、看板の USE 判定（作り直さずに）
+    [MenuItem("FuwaCourse/済み（押す前に相談）/あそびば：解放の看板を「アンロック」に＋看板にもUSE判定")]
+    public static void FixUnlockSigns()
+    {
+        var toys = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "Toys" && t.parent != null && t.parent.name == "Room");
+        var lang = Object.FindObjectsOfType<FuwaLanguage>(true).First();
+        var lso = new SerializedObject(lang); var pa = lso.FindProperty("texts"); var pj = lso.FindProperty("ja"); var pe = lso.FindProperty("en");
+        var hi = lso.FindProperty("hoverInteractJa"); var he = lso.FindProperty("hoverInteractEn");
+        int n = 0;
+        foreach (Transform lr in toys)
+        {
+            if (!lr.name.StartsWith("Locked")) continue;
+            var tr = lr.Find("Sign/Text"); var lbl = tr != null ? tr.GetComponent<TMPro.TextMeshPro>() : null;
+            if (lbl != null) { lbl.text = lbl.text.Replace("クリアすると つかえるよ", "クリアすると アンロック"); EditorUtility.SetDirty(lbl); }
+            for (int a = 0; a < pa.arraySize; a++) if (lbl != null && pa.GetArrayElementAtIndex(a).objectReferenceValue == lbl)
+            {
+                var j = pj.GetArrayElementAtIndex(a); j.stringValue = j.stringValue.Replace("クリアすると つかえるよ", "クリアすると アンロック");
+                var e = pe.GetArrayElementAtIndex(a); e.stringValue = e.stringValue.Replace(" to use", " to unlock").Replace("\nto use", "\nto unlock");
+            }
+            foreach (var ub in lr.GetComponents<VRC.Udon.UdonBehaviour>()) if (ub.interactText == "かいほう") { ub.interactText = UnlockInteract; EditorUtility.SetDirty(ub); }
+            AddSignInteract(lr.gameObject); n++;
+        }
+        for (int a = 0; a < hi.arraySize; a++) if (hi.GetArrayElementAtIndex(a).stringValue == "かいほう") { hi.GetArrayElementAtIndex(a).stringValue = UnlockInteract; he.GetArrayElementAtIndex(a).stringValue = "Unlock"; }
+        lso.ApplyModifiedPropertiesWithoutUndo(); Sync(lang);
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(toys.gameObject.scene);
+        Debug.Log("[あそびば] 解放の看板 " + n + "個：アンロック・USE判定");
+    }
     static void AttachUnlockDome(GameObject lroot, int toyIdx, FuwaPlaygroundSpawner sp)
     {
         EnsureProgram("FuwaPlaygroundUnlockDome");
@@ -667,7 +707,8 @@ public static class FuwaPlaygroundBuilder
         var ud = UdonSharpUndo.AddComponent<FuwaPlaygroundUnlockDome>(lroot);
         ud.records = rec; ud.courseIndex = toyIdx % 5; ud.spawner = sp; ud.toyIndex = toyIdx; ud.dome = lroot.transform.Find("Dome");
         UdonSharpEditorUtility.CopyProxyToUdon(ud);
-        { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(ud); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; ub.interactText = "かいほう"; EditorUtility.SetDirty(ub); } }
+        { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(ud); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; ub.interactText = UnlockInteract; EditorUtility.SetDirty(ub); } }
+        AddSignInteract(lroot);
     }
     // シーンの今のドーム（Locked1〜10）に、さわる仕組みと新しい看板の文を入れる（作り直さずに）
     [MenuItem("FuwaCourse/あそびば/ドームをさわって解放にする（看板の文も）")]
