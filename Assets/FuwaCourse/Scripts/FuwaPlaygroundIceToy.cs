@@ -26,6 +26,12 @@ public class FuwaPlaygroundIceToy : UdonSharpBehaviour
     [Tooltip("持つ判定（Grab）の大きい当たり・小さい当たり（onScale 倍）。縮んでいる間は小さい方に切りかえる（ハイライトも小さく）")]
     public Collider grabFull, grabSmall;
 
+    // 2026-11-28 てじゃ「小さい時に持ってオフにして大きくなると、自分がすごい埋まる」：持っている間・自分が結晶のそばにいる間は、結晶・氷の当たりを出さない
+    [Tooltip("このおもちゃの持つところ（持っている間は当たりを出さない）")]
+    public VRC.SDKBase.VRC_Pickup pickup;
+    [Tooltip("結晶の当たりを出す時、自分がこの半径(m)以内（結晶の中心から水平）にいたら、離れるまで出さない")]
+    public float crystalClearRadius = 0.7f;
+    private bool _crystalBlocked;
     [UdonSynced] private bool _on;
     private float _k;
 
@@ -82,9 +88,19 @@ public class FuwaPlaygroundIceToy : UdonSharpBehaviour
     private void Update()
     {
         float target = _on ? 1f : 0f;
-        if (Mathf.Approximately(_k, target)) return;
+        if (Mathf.Approximately(_k, target)) { if (_crystalBlocked) Apply(); return; }
         _k = Mathf.MoveTowards(_k, target, spreadSpeed * Time.deltaTime);
         Apply();
+    }
+
+    private bool MeNear(Vector3 c)
+    {
+        VRCPlayerApi lp = Networking.LocalPlayer;
+        if (lp == null || !lp.IsValid()) return false;
+        Vector3 f = lp.GetPosition();
+        if (f.y > c.y + 1.2f || f.y < c.y - 1.8f) return false;
+        Vector3 d = f - c; d.y = 0f;
+        return d.sqrMagnitude < crystalClearRadius * crystalClearRadius;
     }
 
     // 持ち運び（FuwaMovableMushroom）で離した時：当たりを今の広がりに合わせ直す（持っている間は当たりを全部切っている）
@@ -97,9 +113,12 @@ public class FuwaPlaygroundIceToy : UdonSharpBehaviour
         bool vis = e > 0.001f;
         if (disc.gameObject.activeSelf != vis) disc.gameObject.SetActive(vis);
         disc.localScale = new Vector3(e, 1f, e);
-        if (discCollider != null) discCollider.enabled = e > 0.2f;
+        bool held = pickup != null && pickup.IsHeld;
+        if (discCollider != null) discCollider.enabled = e > 0.2f && !held;
         if (crystal != null) crystal.localScale = Vector3.one * Mathf.Lerp(1f, onScale, e);
-        if (crystalCollider != null) crystalCollider.enabled = e < 0.05f;
+        bool wantCrystal = e < 0.05f && !held;
+        _crystalBlocked = wantCrystal && crystal != null && MeNear(crystal.position);
+        if (crystalCollider != null) crystalCollider.enabled = wantCrystal && !_crystalBlocked;
         // 2026-11-27 てじゃ「縮んだあとにインタラクト時のハイライトも縮んで欲しい」
         if (grabFull != null && grabSmall != null) { bool small = e >= 0.5f; if (grabSmall.enabled != small) grabSmall.enabled = small; if (grabFull.enabled == small) grabFull.enabled = !small; }
     }
