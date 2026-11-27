@@ -113,6 +113,7 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
     private FuwaPhotoPoint[] _pointOf;
     private int _boardCourse = -1;
     private float _boardRun = -1f;
+    private int _avShots;   // この挑戦で撮ったアバター寄りの枚数（構図を順番に変える）
 
     private FuwaBall _ball;
     private Vector3 _goalBoardScale;
@@ -340,6 +341,7 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
         if (run != _boardRun)
         {
             _boardRun = run;
+            _avShots = 0;
             _boardCourse = CourseIndex(_ball.startPoint);
             for (int i = 0; i < _has.Length; i++) { _has[i] = false; _pointOf[i] = null; if (frames[i] != null) frames[i].enabled = false; if (frames2 != null && i < frames2.Length && frames2[i] != null) frames2[i].enabled = false; }
             if (goalBoard != null) { _goalShowAt = -1f; goalBoard.gameObject.SetActive(false); }
@@ -492,24 +494,34 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
         f = f.sqrMagnitude > 0.0001f ? f.normalized : Vector3.forward;
         Vector3 rgt = Vector3.Cross(Vector3.up, f);
         float pref = Vector3.Dot(point.camPose.position - chest, rgt) >= 0f ? 1f : -1f;
-        Vector3 look = Vector3.Lerp(chest, head, 0.45f);
+        // 2026-11-27 てじゃ「アップ増やしたら構図めっちゃ被ってる」：1回の挑戦の中で撮るたびに構図を変える
+        //  0 ななめ前のバストアップ／1 反対側の横寄りから引きの腰上／2 正面寄りの低い所から見上げ。左右も1枚ごとに入れ替える
+        int v = _avShots % 3;
+        if ((_avShots & 1) == 1) pref = -pref;
+        _avShots++;
+        float baseAng = v == 0 ? 35f : (v == 1 ? 62f : 20f);
+        float dScale = v == 0 ? 1f : (v == 1 ? 1.5f : 1.15f);
+        float up = v == 0 ? 0.12f : (v == 1 ? 0.1f : -0.42f);
+        float fov0 = v == 0 ? avatarFov : (v == 1 ? avatarFov + 6f : avatarFov + 4f);
+        Vector3 look = Vector3.Lerp(chest, head, v == 1 ? 0.15f : 0.45f);
         bool ballNear = (ball - chest).magnitude < 4f;
-        float[] angs = { 35f, -35f, 55f, -55f, 18f, -18f, 80f, -80f };
+        float a2 = baseAng + 20f, a3 = Mathf.Max(10f, baseAng - 18f);
+        float[] angs = { baseAng, -baseAng, a2, -a2, a3, -a3, 80f, -80f };
         float[] dist = { 1f, 1f, 1.05f, 1.05f, 1.1f, 1.1f, 1.15f, 1.15f };
-        float bestBad = 1e9f; Vector3 bestPos = Vector3.zero, bestDir = Vector3.forward; float bestFov = avatarFov;
+        float bestBad = 1e9f; Vector3 bestPos = Vector3.zero, bestDir = Vector3.forward; float bestFov = fov0;
         for (int k = 0; k < angs.Length; k++)
         {
             Vector3 d = Quaternion.Euler(0f, angs[k] * pref, 0f) * f;
-            Vector3 pos = look + (d * (avatarDistance * dist[k]) + Vector3.up * 0.12f) * s;
+            Vector3 pos = look + (d * (avatarDistance * dScale * dist[k]) + Vector3.up * up) * s;
             if (Physics.CheckSphere(pos, 0.2f, obstacleMask, QueryTriggerInteraction.Ignore)) continue;
             if (Blocked(pos, head) || Blocked(pos, chest)) continue;
             Vector3 dC = (look - pos).normalized;
-            Vector3 dir = dC; float fov = avatarFov;
+            Vector3 dir = dC; float fov = fov0;
             if (ballNear && !Blocked(pos, ball))
             {
                 Vector3 dB = (ball - pos).normalized;
                 float ang = Vector3.Angle(dB, dC);
-                if (ang < 40f) { dir = (dC * 0.72f + dB * 0.28f).normalized; fov = Mathf.Clamp(ang * 1.15f + avatarFov - 6f, avatarFov, 54f); }
+                if (ang < 40f) { dir = (dC * 0.72f + dB * 0.28f).normalized; fov = Mathf.Clamp(ang * 1.15f + fov0 - 6f, fov0, 56f); }
             }
             float bad = Occlusion(pos, dir, fov, chest, head);
             if (bad < OccludeOk) { Aim(pos, dir, fov); return true; }
