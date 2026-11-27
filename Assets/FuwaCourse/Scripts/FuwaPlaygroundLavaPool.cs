@@ -24,7 +24,7 @@ public class FuwaPlaygroundLavaPool : UdonSharpBehaviour
     public float interval = 2.5f, flightTime = 1.4f, height = 4f;
     public float hitRadius = 0.75f;
     [Tooltip("ふわふわ：上へ knockUp、弾から外へ knockSide")]
-    public float knockUp = 7f, knockSide = 2f, ballCooldown = 0.8f;
+    public float knockUp = 1.5f, knockSide = 3.2f, ballCooldown = 0.8f;
     public float playerUp = 6f, playerSide = 3f, playerCooldown = 0.8f;
     [Tooltip("オンの間、池の上（半径 poolRadius・溶岩の面から poolDepth m 以内）に入ったふわふわも燃えだす")]
     public float poolRadius = 0.85f, poolDepth = 0.7f;
@@ -75,19 +75,58 @@ public class FuwaPlaygroundLavaPool : UdonSharpBehaviour
         if (t < 0.0) { Show(false); return; }
         int cycle = (int)(t / interval);
         float c = (float)(t - cycle * (double)interval);
-        if (c >= flightTime) { Show(false); return; }
+        // 2026-11-27 てじゃ「溶岩溜まりも動かすと火球がいっしょについてきちゃう。火球はその場で動いて、地面に落ちたら弾けてほしい」：
+        //  打ち上げた時の池の位置（_org）から上がって、そこへ落ちる。落ちた時に池がもうそこになければ、床ではじける（しぶき＋音）
+        if (c >= flightTime)
+        {
+            if (_inFlight) { _inFlight = false; Land(); }
+            Show(false); return;
+        }
         if (cycle != _lastCycle)
         {
+            if (_inFlight) Land();
             _lastCycle = cycle;
-            if (splash != null) splash.Emit(18);
-            if (whoosh != null) whoosh.Play();
+            _org = surface.position; _inFlight = true;
+            EmitAt(splash, _org, 18);
+            if (whoosh != null) { whoosh.transform.position = _org; whoosh.Play(); }
         }
         float u = c / flightTime;
-        Vector3 p = surface.position + Vector3.up * (4f * height * u * (1f - u));
+        Vector3 p = _org + Vector3.up * (4f * height * u * (1f - u));
         Show(true);
         if (bomb != null) bomb.transform.position = p;
         HitBalls(p);
         HitPlayer(p);
+    }
+
+    private Vector3 _org;
+    private bool _inFlight;
+    [Tooltip("池がない所に落ちた時にはじける粒（なければ splash）と音")]
+    public ParticleSystem landBurst;
+    public AudioSource landSound;
+    public int landBurstCount = 24;
+    [Tooltip("池がこれより離れていたら、床ではじける（m、水平）")]
+    public float landMissDist = 0.35f;
+
+    private void Land()
+    {
+        Vector3 d = surface.position - _org; d.y = 0f;
+        if (d.magnitude <= landMissDist) { EmitAt(splash, surface.position, 12); return; }   // 池に戻った
+        // 床ではじける：落ちる所の床の高さ（打ち上げた時の池の面の下の床）
+        Vector3 at = _org; RaycastHit h;
+        if (Physics.Raycast(_org + Vector3.up * 0.5f, Vector3.down, out h, 3f, 1 | (1 << 11), QueryTriggerInteraction.Ignore)) at = h.point + Vector3.up * 0.05f;
+        EmitAt(landBurst != null ? landBurst : splash, at, landBurstCount);
+        AudioSource s = landSound != null ? landSound : whoosh;
+        if (s != null) { s.transform.position = at; s.Play(); }
+    }
+
+    // 粒を位置 at から出す（粒はワールドに残る設定でも、池の子でも、その場から出るように一瞬だけ動かす）
+    private void EmitAt(ParticleSystem ps, Vector3 at, int n)
+    {
+        if (ps == null) return;
+        Vector3 keep = ps.transform.position;
+        ps.transform.position = at;
+        ps.Emit(n);
+        ps.transform.position = keep;
     }
 
     private void BurnInPool()
@@ -119,9 +158,16 @@ public class FuwaPlaygroundLavaPool : UdonSharpBehaviour
             Vector3 d = b.transform.position - p;
             if (d.sqrMagnitude > r2) continue;
             _ballAt[i] = Time.time;
+            // 2026-11-27 てじゃ「上方向に飛びすぎ、コースのやつみたいに横寄りに」：コースの火の玉（FuwaFireball：横 3.2・上 1.5）と同じくらい。
+            //  真上から当たって横の向きがない時は、ふわふわの動いている向き → それもなければ池から外向き
             Vector3 side = d; side.y = 0f;
-            side = side.sqrMagnitude > 0.0001f ? side.normalized : Vector3.zero;
-            b.Nudge(Vector3.up * knockUp + side * knockSide);
+            if (side.sqrMagnitude < 0.01f) { Rigidbody rb = b.GetComponent<Rigidbody>(); if (rb != null) { side = rb.velocity; side.y = 0f; } }
+            if (side.sqrMagnitude < 0.01f) { side = b.transform.position - _org; side.y = 0f; }
+            side = side.sqrMagnitude > 0.0001f ? side.normalized : Vector3.forward;
+            // コースの火の玉と同じく、今の速さは消して はじく速さにする（Nudge は足し算なので差を渡す）
+            Rigidbody brb = b.GetComponent<Rigidbody>();
+            Vector3 want = Vector3.up * knockUp + side * knockSide;
+            b.Nudge(brb != null ? want - brb.velocity : want);
             b.Ignite();
         }
     }

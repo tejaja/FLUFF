@@ -180,6 +180,36 @@ public class FuwaSharedBall : UdonSharpBehaviour
     }
     public bool IsBurning() { return _sBurnAt > 0.0; }
 
+    [Tooltip("黒焦げになってから弾けるまで止まる秒数（コースの FuwaBall と同じ）")]
+    public float charFreezeTime = 0.7f;
+    [Tooltip("黒焦げの色（毛の根元・先）")]
+    public Color charColor = new Color(0.07f, 0.05f, 0.05f, 1f), charTipColor = new Color(0.22f, 0.17f, 0.15f, 1f);
+    [Tooltip("「ぷすっ」の音（なくてもOK）")]
+    public AudioSource sfxChar;
+    private bool _charred;
+    private Color _preColor, _preTip;
+    // 全員：黒くする（弾けて隠れた時に元の色へ戻す＝ApplyHiddenVisual）
+    public void PlayChar()
+    {
+        if (_furMat == null || _charred) return;
+        _preColor = _furMat.GetColor("_Color"); _preTip = _furMat.GetColor("_TipColor");
+        _furMat.SetColor("_Color", charColor); _furMat.SetColor("_TipColor", charTipColor);
+        _charred = true;
+        if (sfxChar != null && sfxChar.clip != null) { sfxChar.transform.position = transform.position; sfxChar.PlayOneShot(sfxChar.clip); }
+    }
+    private void UnChar()
+    {
+        if (!_charred || _furMat == null) return;
+        _furMat.SetColor("_Color", _preColor); _furMat.SetColor("_TipColor", _preTip);
+        _charred = false;
+    }
+    // 持ち主：止まったあとはじける
+    public void CharPop()
+    {
+        if (!Networking.IsOwner(gameObject) || _popped || _waiting) return;
+        Pop();
+    }
+
     private void DouseBy(float charge)
     {
         if (_sBurnAt <= 0.0) return;
@@ -192,7 +222,15 @@ public class FuwaSharedBall : UdonSharpBehaviour
         if (owner && _sBurnAt > 0.0)
         {
             if (_waiting || _popped) _sBurnAt = 0.0;
-            else if (Networking.GetServerTimeInSeconds() - _sBurnAt > burnGrace) { _sBurnAt = 0.0; Pop(); }
+            else if (Networking.GetServerTimeInSeconds() - _sBurnAt > burnGrace)
+            {
+                // 2026-11-27 てじゃ「あそびばでふわふわが炎上したあと、燃え尽きる時に丸焦げ演出がない」：コース（FuwaBall.FailByBurn）と同じく、黒焦げ→一瞬止まる→はじける
+                _sBurnAt = 0.0;
+                _rb.velocity = Vector3.zero; _rb.angularVelocity = Vector3.zero; _rb.isKinematic = true;
+                _sendSoon = true;
+                SendCustomNetworkEvent(NetworkEventTarget.All, nameof(PlayChar));
+                SendCustomEventDelayedSeconds(nameof(CharPop), charFreezeTime);
+            }
         }
         bool show = _sBurnAt > 0.0 && !_waiting && !_popped && _here;
         if (show != _burnShown)
@@ -1000,6 +1038,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
     private void ApplyHiddenVisual()
     {
         _shownHidden = ShouldHide();
+        if (_shownHidden) UnChar();
         if (_selfRenderer != null) _selfRenderer.enabled = !_shownHidden;
         if (furRenderer != null) furRenderer.enabled = !_shownHidden;
         if (_col != null) _col.enabled = !_shownHidden;

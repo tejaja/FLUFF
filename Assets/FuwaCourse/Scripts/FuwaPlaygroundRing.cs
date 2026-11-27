@@ -9,6 +9,8 @@ public class FuwaPlaygroundRing : UdonSharpBehaviour
 {
     public Renderer ring;
     public ParticleSystem[] fireworks;
+    [Tooltip("上げる前に向きをまっすぐ上に戻す物（花火の親）")]
+    public Transform fxUpright;
     public AudioSource sfx;
     [Tooltip("光らせる強さ（リングのマテリアルの _Glow。コースのゴールリング FuwaCourse/GoalRing と同じ）")]
     public float glowMax = 1f;
@@ -54,7 +56,9 @@ public class FuwaPlaygroundRing : UdonSharpBehaviour
         FuwaSharedBall b = other.GetComponent<FuwaSharedBall>();
         if (b == null || !b.IsFlying()) return;
         _last = Time.time;
-        if (fireworks != null) foreach (ParticleSystem p in fireworks) if (p != null) { p.Clear(); p.Play(); }
+        // 2026-11-27 てじゃ「打ち上がる方向はリングの向き関係なく上固定に」：花火の向きを毎回まっすぐ上に戻してから上げる
+        if (fxUpright != null) fxUpright.rotation = Quaternion.identity;
+        if (fireworks != null) foreach (ParticleSystem p in fireworks) if (p != null) { p.Clear(true); p.Play(true); }
         if (sfx != null && sfx.clip != null) sfx.PlayOneShot(sfx.clip);
     }
 
