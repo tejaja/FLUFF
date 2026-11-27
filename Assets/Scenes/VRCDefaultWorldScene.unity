@@ -51256,6 +51256,7 @@ MonoBehaviour:
   - {fileID: 301689042}
   cams: {fileID: 1268506952}
   openSpeed: 1.6
+  maxDepth: 1
   onSound: {fileID: 950997783}
   offSound: {fileID: 1666123812}
   holeCenterY: 1.85
@@ -178286,6 +178287,7 @@ MonoBehaviour:
   ghost: {fileID: 0}
   nearGhost: {fileID: 0}
   ghostRange: 40
+  maxStep: 2
 --- !u!1 &304476421
 GameObject:
   m_ObjectHideFlags: 0
@@ -231409,6 +231411,7 @@ MonoBehaviour:
   ghost: {fileID: 0}
   nearGhost: {fileID: 0}
   ghostRange: 40
+  maxStep: 2
 --- !u!1 &396051542
 GameObject:
   m_ObjectHideFlags: 0
@@ -299778,6 +299781,7 @@ MonoBehaviour:
   ghost: {fileID: 0}
   nearGhost: {fileID: 0}
   ghostRange: 40
+  maxStep: 2
 --- !u!1 &501508209
 GameObject:
   m_ObjectHideFlags: 0
@@ -319363,7 +319367,7 @@ MeshRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 536789913}
-  m_Enabled: 0
+  m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
@@ -625294,7 +625298,7 @@ MeshRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 965005367}
-  m_Enabled: 0
+  m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
@@ -884231,6 +884235,7 @@ MonoBehaviour:
   ghost: {fileID: 0}
   nearGhost: {fileID: 0}
   ghostRange: 40
+  maxStep: 2
 --- !u!4 &1385913446
 Transform:
   m_ObjectHideFlags: 0
@@ -1227689,6 +1227694,7 @@ MonoBehaviour:
   ghost: {fileID: 0}
   nearGhost: {fileID: 0}
   ghostRange: 40
+  maxStep: 2
 --- !u!1 &1907557310
 GameObject:
   m_ObjectHideFlags: 0
@@ -1228369,6 +1228375,7 @@ MonoBehaviour:
   ghost: {fileID: 0}
   nearGhost: {fileID: 0}
   ghostRange: 40
+  maxStep: 2
 --- !u!4 &1910387911
 Transform:
   m_ObjectHideFlags: 0
