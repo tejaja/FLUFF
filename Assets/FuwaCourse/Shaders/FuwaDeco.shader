@@ -1,4 +1,4 @@
-// 道のふちの飾り（草・花・小石・ツタ）用：両面描画、裏から見た時は法線を反転してふつうに明るく。
+﻿// 道のふちの飾り（草・花・小石・ツタ）用：両面描画、裏から見た時は法線を反転してふつうに明るく。
 Shader "FuwaCourse/Deco"
 {
     Properties
@@ -11,7 +11,8 @@ Shader "FuwaCourse/Deco"
         Tags { "RenderType"="Opaque" }
         Cull Off
         CGPROGRAM
-        #pragma surface surf Wrapped fullforwardshadows addshadow
+        #pragma surface surf Wrapped fullforwardshadows addshadow finalcolor:PlayerBlob
+        #include "FuwaPlayerBlob.cginc"
         #pragma target 3.0
         fixed4 _Color;
         half _Wrap;
@@ -22,6 +23,17 @@ Shader "FuwaCourse/Deco"
         {
             half d = (dot(s.Normal, lightDir) + _Wrap) / (1 + _Wrap);
             half4 c; c.rgb = s.Albedo * _LightColor0.rgb * saturate(d) * atten; c.a = s.Alpha; return c;
+        }
+
+        // プレイヤーの足元のうそ影（FuwaPlayerBlob.cginc）。足し算のパス（点光源）は暗くするだけ
+        void PlayerBlob(Input IN, SurfaceOutput o, inout fixed4 color)
+        {
+            float3 wn = float3(0, 1, 0);   // 草・花などの小さい飾り：向きにかかわらず地面と同じに暗くする
+            #ifdef UNITY_PASS_FORWARDADD
+            FUWA_APPLY_PLAYER_BLOB_ADD(color.rgb, IN.worldPos, wn)
+            #else
+            FUWA_APPLY_PLAYER_BLOB(color.rgb, IN.worldPos, wn)
+            #endif
         }
 
         void surf(Input IN, inout SurfaceOutput o)

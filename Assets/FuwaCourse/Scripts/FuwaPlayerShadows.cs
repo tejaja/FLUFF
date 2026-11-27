@@ -39,6 +39,15 @@ public class FuwaPlayerShadows : UdonSharpBehaviour
     [Tooltip("何フレームおきに人のリストを取り直すか")]
     public int refreshFrames = 30;
 
+    [Header("地面のシェーダーで描く（FuwaPlayerBlob.cginc）")]
+    // 2026-11-28 てじゃ「アバターに乗らないようにはできないの？」→ 箱のデカール（深度頼み）をやめ、地面のシェーダー（ToonLit・InkCap・Deco）が自分で暗くする。
+    //  近いプレイヤー16人まで、足元の地面の位置・半径・濃さを全シェーダー共通の値で渡す。shadows の箱は色・ぼかしの設定を読むだけで出さない
+    public bool receiver = true;
+    [Tooltip("足元の地面より上の段に何mまで影を落とすか（小さい段差）")]
+    public float receiverUpTol = 0.2f;
+    [Tooltip("足元の地面より下の段に何mまで影を落とすか")]
+    public float receiverDownTol = 0.5f;
+
     [Header("リアルタイムの影")]
     public Light sun;
     public bool disableRealtimeShadows = false;
@@ -48,6 +57,10 @@ public class FuwaPlayerShadows : UdonSharpBehaviour
     private int _frame;
     private Material[] _mats;
     private float[] _alpha;
+    private Vector4[] _pb = new Vector4[16];
+    private float[] _pba = new float[16];
+    private float[] _pbDist = new float[16];
+    private int _idPB, _idPBA, _idPBCount;
 
     private void Start()
     {
@@ -65,6 +78,21 @@ public class FuwaPlayerShadows : UdonSharpBehaviour
             shadows[i].enabled = false;
         }
         if (disableRealtimeShadows && sun != null) sun.shadows = LightShadows.None;
+        if (receiver)
+        {
+            _idPB = VRCShader.PropertyToID("_UdonFuwaPB");
+            _idPBA = VRCShader.PropertyToID("_UdonFuwaPBA");
+            _idPBCount = VRCShader.PropertyToID("_UdonFuwaPBCount");
+            // 色・ぼかしは今までの箱の材質（BlobDecal）から
+            Color col = new Color(0.12f, 0.08f, 0.2f, 1f); float fs = 0.35f, pw = 1f;
+            Material m0 = n > 0 && shadows[0] != null ? shadows[0].sharedMaterial : null;
+            if (m0 != null) { col = m0.GetColor("_Color"); fs = m0.GetFloat("_FalloffStart"); pw = m0.GetFloat("_Power"); }
+            VRCShader.SetGlobalColor(VRCShader.PropertyToID("_UdonFuwaPBColor"), col);
+            VRCShader.SetGlobalVector(VRCShader.PropertyToID("_UdonFuwaPBParam"), new Vector4(fs, pw, receiverUpTol, receiverDownTol));
+            VRCShader.SetGlobalVectorArray(_idPB, _pb);
+            VRCShader.SetGlobalFloatArray(_idPBA, _pba);
+            VRCShader.SetGlobalFloat(_idPBCount, 0f);
+        }
 #if UNITY_ANDROID || UNITY_IOS
         // スマホ・Quest はプレイヤーの影なし（2026-11-21 深度をやめた。てじゃ「プレイヤと銃はいらん」）
         enabled = false;
@@ -81,6 +109,7 @@ public class FuwaPlayerShadows : UdonSharpBehaviour
             if (_players.Length < _count) _players = new VRCPlayerApi[_count + 8];
             VRCPlayerApi.GetPlayers(_players);
         }
+        if (receiver) { UpdateReceiver(); return; }
         int used = 0;
         for (int i = 0; i < _count && used < shadows.Length; i++)
         {
@@ -135,5 +164,44 @@ public class FuwaPlayerShadows : UdonSharpBehaviour
         }
         for (int i = used; i < shadows.Length; i++)
             if (shadows[i] != null && shadows[i].enabled) shadows[i].enabled = false;
+    }
+
+    // 地面のシェーダーへ渡す（近い16人まで）
+    private void UpdateReceiver()
+    {
+        VRCPlayerApi lp = Networking.LocalPlayer;
+        Vector3 me = lp != null ? lp.GetPosition() : Vector3.zero;
+        int n = 0;
+        for (int i = 0; i < _count; i++)
+        {
+            VRCPlayerApi p = _players[i];
+            if (p == null || !Utilities.IsValid(p)) continue;
+            Vector3 pos = p.GetPosition();
+            RaycastHit hit;
+            if (!Physics.Raycast(pos + Vector3.up * 0.4f, Vector3.down, out hit, maxDistance, groundMask, QueryTriggerInteraction.Ignore)) continue;
+            float h = Mathf.Max(0f, hit.distance - 0.4f);
+            float k = Mathf.Clamp01(h / Mathf.Max(0.01f, fadeHeight));
+            float eye = p.GetAvatarEyeHeightAsMeters();
+            float size = baseSize * Mathf.Clamp(eye / 1.6f, 0.4f, 2.5f) * (1f + k * 0.4f);
+            float a = nearAlpha * (1f - k);
+            if (a <= 0.001f) continue;
+            float dd = (pos - me).sqrMagnitude;
+            int slot = n;
+            if (n >= 16)
+            {
+                // いっぱいなら、いちばん遠い人と入れ替え（自分に近い人を優先）
+                int far = 0;
+                for (int q = 1; q < 16; q++) if (_pbDist[q] > _pbDist[far]) far = q;
+                if (_pbDist[far] <= dd) continue;
+                slot = far;
+            }
+            else n++;
+            _pb[slot] = new Vector4(hit.point.x, hit.point.y, hit.point.z, size * 0.5f);
+            _pba[slot] = a;
+            _pbDist[slot] = dd;
+        }
+        VRCShader.SetGlobalVectorArray(_idPB, _pb);
+        VRCShader.SetGlobalFloatArray(_idPBA, _pba);
+        VRCShader.SetGlobalFloat(_idPBCount, n);
     }
 }

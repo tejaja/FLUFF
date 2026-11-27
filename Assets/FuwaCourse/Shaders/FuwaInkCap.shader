@@ -34,6 +34,7 @@ Shader "FuwaCourse/InkCap"
             #include "Lighting.cginc"
             #include "AutoLight.cginc"
             #include "FuwaBaked.cginc"
+            #include "FuwaPlayerBlob.cginc"
 
             half _Wrap, _Ambient, _InkGloss;
             float _DripAmp, _DripSpeed;
@@ -101,6 +102,7 @@ Shader "FuwaCourse/InkCap"
                 fixed3 c = (col * d + spec * _InkTint.rgb) * _LightColor0.rgb * atten
                          + col * amb * _Ambient * 2
                          + fres * ink * _InkTint.rgb * 0.15;
+                FUWA_APPLY_PLAYER_BLOB(c, i.wp, n)   // プレイヤーの足元のうそ影
                 fixed4 o = fixed4(c, 1);
                 UNITY_APPLY_FOG(i.fogCoord, o);
                 return o;

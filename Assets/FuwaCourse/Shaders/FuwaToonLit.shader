@@ -143,6 +143,7 @@ Shader "FuwaCourse/ToonLit"
             #include "Lighting.cginc"
             #include "AutoLight.cginc"
             #include "FuwaBaked.cginc"
+            #include "FuwaPlayerBlob.cginc"
 
             sampler2D _MainTex; float4 _MainTex_ST;
             sampler2D _BumpMap; half _BumpScale;
@@ -455,6 +456,7 @@ Shader "FuwaCourse/ToonLit"
                     c = lerp(c, _FlowColor.rgb, fb * _FlowStrength);
                 }
 
+                FUWA_APPLY_PLAYER_BLOB(c, i.wp, normalize(i.wn))   // プレイヤーの足元のうそ影（FuwaPlayerBlob.cginc）
                 fixed4 o = fixed4(c, 1);
                 UNITY_APPLY_FOG(i.fogCoord, o);
                 return o;
@@ -482,6 +484,7 @@ Shader "FuwaCourse/ToonLit"
             #include "UnityCG.cginc"
             #include "Lighting.cginc"
             #include "AutoLight.cginc"
+            #include "FuwaPlayerBlob.cginc"
             sampler2D _MainTex; float4 _MainTex_ST;
             half _Wrap; fixed4 _BaseFadeColor; float _BaseFadeLength; half _BaseFadeNormal; half _DitherFade; float4 _PortalClip;
             float Bayer4(float2 p)
@@ -532,6 +535,7 @@ Shader "FuwaCourse/ToonLit"
                 half wrap = saturate((dot(n, l) + _Wrap) / (1 + _Wrap));
                 UNITY_LIGHT_ATTENUATION(atten, i, i.wp);
                 fixed4 o = fixed4(col.rgb * _LightColor0.rgb * wrap * atten, 0);
+                FUWA_APPLY_PLAYER_BLOB_ADD(o.rgb, i.wp, n)
                 UNITY_APPLY_FOG_COLOR(i.fogCoord, o, fixed4(0,0,0,0));
                 return o;
             }
