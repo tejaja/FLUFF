@@ -21,7 +21,7 @@ public static class FuwaBonusHubBuilder
     public static bool BoardPickup = false;
     public static bool SharedBoards = true;
     public static float MushSinkMax = 0.04f, StageDirtUv = 2.5f;   // キノコの根元が床にうまる深さの上限(m、縮める前)
-    public static float[] PhotoFluffSizes = { 0.165f, 0.3f, 0.9f }; public static float PhotoFluffSpread = 1.2f;   // てじゃ「通常＋2-5にある２種で」：ふつう30cm、ちいさく（×0.55）、おおきく（×3）
+    public static float[] PhotoFluffSizes = { 0.165f, 0.3f, 0.9f }; public static float PhotoFluffSpread = 1.2f; public static float PhotoFluffShiftX = 0.45f;   // 2026-11-28 てじゃ「写真の邪魔」→ワールドの東へ45cm（これ以上は柵）   // てじゃ「通常＋2-5にある２種で」：ふつう30cm、ちいさく（×0.55）、おおきく（×3）
     public static float GoldFluffSize = 0.7f, StatueYaw = 90f;   // 金の銃の像の向き（台の向きから）   // 金ピカふわふわの直径(m)   // ボード3つをみんなで持てる（同期）   // 置き場所さがし用（一時的）   // 最後に全部まとめて縮める（1.4倍のロビー → ロビーの1.05倍くらい）
     // 2026-11-19 てじゃ「おまけ本島やっぱ広すぎるかなぁ」→ A（島だけ小さく、物は今の大きさで寄せる）：床・柵・下の岩を横だけ IslandXZ 倍。
     //  スポーン・戻りポータル・西の橋は床の半径 R から、金の台は GoldX、ボタン・あしあとは柵の半径から決まる。きのこの輪・ボード・ステージは PhotoShiftZ だけ手前へ
@@ -126,7 +126,7 @@ public static class FuwaBonusHubBuilder
             var gf = Object.Instantiate(gf0.gameObject, holder, false).transform; gf.name = "PhotoFluff" + (si + 1);
             var mf = gf.GetComponent<MeshFilter>(); float meshD = mf && mf.sharedMesh ? mf.sharedMesh.bounds.size.x : 1f;
             gf.localScale = Vector3.one * (size / meshD); gf.rotation = gs.rotation;
-            var basePos = gs.position + gs.rotation * new Vector3(PhotoFluffSpread * (si - 1), 0f, 0f);
+            var basePos = gs.position + gs.rotation * new Vector3(PhotoFluffSpread * (si - 1), 0f, 0f) + new Vector3(PhotoFluffShiftX, 0f, 0f);
             gf.position = new Vector3(basePos.x, Pos.y + size * 0.5f + 0.05f, basePos.z);
             // 2026-11-19 てじゃ「ふわふわ置物各種、入ってきた場所のほう向かせて」：顔（+z）をスポーンの方へ
             { var sp = root.Find("Spawn"); if (sp) { var d = sp.position - gf.position; d.y = 0f; if (d.sqrMagnitude > 1e-4f) gf.rotation = Quaternion.LookRotation(d.normalized); } }
