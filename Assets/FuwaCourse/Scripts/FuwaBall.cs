@@ -1265,6 +1265,8 @@ public class FuwaBall : UdonSharpBehaviour
         // 2026-11-28 てじゃ「チュートリアルの端あてのとこで落ちると無限落下」：再開位置（ためし撃ちのふわふわ）が道の外に浮いていると、
         //  後ろにも下にも道がなく空中へ戻されて、また落ちる→また戻す、をくり返していた。道が見つからない時は、まわりで一番近い道の上
         //  （ふちギリギリにならないよう、見つけた向きにもう 0.6m 内側まで道が続いていればそこ）へ
+        //  → てじゃ「もうちょい後ろ復帰でもいいかも、ふわふわみえないし」：さらに 1m ふわふわから離れた所まで道があればそこ。向きはふわふわの方
+        Vector3 look = fwd;
         if (!onGround)
         {
             for (float r = 0.5f; r <= 4.01f && !onGround; r += 0.5f)
@@ -1275,12 +1277,15 @@ public class FuwaBall : UdonSharpBehaviour
                     Vector3 dir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
                     if (!Physics.Raycast(basePos + dir * r + Vector3.up * 2.5f, Vector3.down, out hit, 5f, 1 << 11)) continue;
                     pos = hit.point; onGround = true;
-                    if (Physics.Raycast(basePos + dir * (r + 0.6f) + Vector3.up * 2.5f, Vector3.down, out hit, 5f, 1 << 11)) pos = hit.point;
+                    if (Physics.Raycast(basePos + dir * (r + 1.6f) + Vector3.up * 2.5f, Vector3.down, out hit, 5f, 1 << 11)) pos = hit.point;
+                    else if (Physics.Raycast(basePos + dir * (r + 0.6f) + Vector3.up * 2.5f, Vector3.down, out hit, 5f, 1 << 11)) pos = hit.point;
+                    Vector3 toBall = Vector3.ProjectOnPlane(p.position - pos, Vector3.up);
+                    if (toBall.sqrMagnitude > 0.01f) look = toBall.normalized;
                     break;
                 }
             }
         }
-        player.TeleportTo(pos, Quaternion.LookRotation(fwd, Vector3.up));
+        player.TeleportTo(pos, Quaternion.LookRotation(look, Vector3.up));
         // 暗転が明けるまで少しだけ動けなくする（真っ暗なまま歩き出して、また落ちたりしないように）
         if (fade != null) { fade.FreezeFor(respawnFreezeTime); return; }
         player.SetVelocity(Vector3.zero);
