@@ -1256,10 +1256,29 @@ public class FuwaBall : UdonSharpBehaviour
         // 足元の道の高さに合わせる（胞子の位置が低い時に道の下へ飛ばされないように）。
         // 後ろに道が無い所（谷のすぐ先のチェックポイントなど）は、道がある所まで近づける
         RaycastHit hit;
+        bool onGround = false;
         for (float d = playerBackDistance; d > 0.3f; d -= 0.2f)
         {
             Vector3 q = basePos - fwd * d;
-            if (Physics.Raycast(q + Vector3.up * 2.5f, Vector3.down, out hit, 5f, 1 << 11)) { pos = hit.point; break; }
+            if (Physics.Raycast(q + Vector3.up * 2.5f, Vector3.down, out hit, 5f, 1 << 11)) { pos = hit.point; onGround = true; break; }
+        }
+        // 2026-11-28 てじゃ「チュートリアルの端あてのとこで落ちると無限落下」：再開位置（ためし撃ちのふわふわ）が道の外に浮いていると、
+        //  後ろにも下にも道がなく空中へ戻されて、また落ちる→また戻す、をくり返していた。道が見つからない時は、まわりで一番近い道の上
+        //  （ふちギリギリにならないよう、見つけた向きにもう 0.6m 内側まで道が続いていればそこ）へ
+        if (!onGround)
+        {
+            for (float r = 0.5f; r <= 4.01f && !onGround; r += 0.5f)
+            {
+                for (int k = 0; k < 16; k++)
+                {
+                    float a = k * (Mathf.PI * 2f / 16f);
+                    Vector3 dir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+                    if (!Physics.Raycast(basePos + dir * r + Vector3.up * 2.5f, Vector3.down, out hit, 5f, 1 << 11)) continue;
+                    pos = hit.point; onGround = true;
+                    if (Physics.Raycast(basePos + dir * (r + 0.6f) + Vector3.up * 2.5f, Vector3.down, out hit, 5f, 1 << 11)) pos = hit.point;
+                    break;
+                }
+            }
         }
         player.TeleportTo(pos, Quaternion.LookRotation(fwd, Vector3.up));
         // 暗転が明けるまで少しだけ動けなくする（真っ暗なまま歩き出して、また落ちたりしないように）
