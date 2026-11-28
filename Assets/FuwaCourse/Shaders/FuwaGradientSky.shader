@@ -58,7 +58,10 @@ Shader "FuwaCourse/GradientSky"
             fixed4 _DimTopColor, _DimHorizonColor, _DimBottomColor;
             float _UdonSkyDim;   // グローバル（Udon の VRCShader.SetGlobalFloat）：0=いつもの空、1=くもった暗い空
             float _UdonSunSquint; // グローバル：0=いつもの棒の目、1=「＞＜」（太陽を撃たれた時。FuwaSunFace）
-            float _UdonSunPop;    // グローバル：撃たれた時のトゲの「ピョン」（FuwaSunFace が1回だけ跳ねる値を入れる）
+            float _UdonSunPop;    // グローバル：撃たれた時のトゲの「ピョン」（FuwaSunFace が1回だけ跳ねる値を入れる。2026-11-28 から未使用、下の3つで計算）
+            float _UdonSunPopT;   // グローバル：撃たれてからの秒数（撃たれていない時は -1）
+            float _UdonSunPopLen; // グローバル：撃たれた時のピョンの長さ(秒)（FuwaSunFace.popTime）
+            float _UdonSunPopAmt; // グローバル：撃たれた時のピョンの大きさ（FuwaSunFace.popAmount）
             // 線分までの距離（「＞＜」の目に使う）
             float segDist(float2 p, float2 a, float2 b)
             {
@@ -155,15 +158,29 @@ Shader "FuwaCourse/GradientSky"
                 col += _SunColor.rgb * _SunHalo * exp(-rho / (R * 1.6)) * 0.35;
                 // トゲ：円のすぐ外から R*_SunRayLen まで、根元が太く先が丸い三角
                 // ときどきトゲが外へピョンと広がって、ぷるんと戻る（たまに1回休み・2連続もあり）
-                float popI = floor(_Time.y / _SunPopEvery);
-                float popX = (_Time.y - popI * _SunPopEvery) / max(_SunPopTime, 0.05);
-                float popOn = frac(sin(popI * 12.9898) * 43758.5453) < 0.8 ? 1 : 0;
-                float pop = popX < 1 ? popOn * (1 - popX) * (1 - popX) * sin(popX * 9.4) : 0;
-                // 撃たれた時（_UdonSunSquint）：トゲが1回ピョンと跳ねて戻る（跳ね方は FuwaSunFace が _UdonSunPop で渡す）
-                float sqPop = saturate(_UdonSunSquint);
-                pop = lerp(pop, _UdonSunPop, sqPop);
-                float r0 = R * (1.18 + _SunPopAmount * pop), r1 = R * (_SunRayLen + _SunPopAmount * pop * 1.15);
+                // 2026-11-28 てじゃの知人の案「トゲ個別でバラつかせたらかわいい」：トゲごとに跳ねる時刻を少しずらして量もバラバラに。
+                //  合間にときどき1本だけ小さくピョン。撃たれた時もトゲごとに少しずれる（FuwaSunFace が撃たれてからの秒数 _UdonSunPopT を渡す）
                 float sector = 6.2831853 / _SunRayCount;
+                float spikeK = fmod(floor(phi / sector) + _SunRayCount * 64, _SunRayCount);   // 今のピクセルがどのトゲか（0〜本数-1）
+                float hA = frac(sin(spikeK * 78.233 + 1.7) * 43758.5453);
+                float hB = frac(sin(spikeK * 39.425 + 5.3) * 24634.6345);
+                float popI = floor(_Time.y / _SunPopEvery);
+                float popX = (_Time.y - popI * _SunPopEvery - hA * 0.3) / max(_SunPopTime, 0.05);
+                float popOn = frac(sin(popI * 12.9898) * 43758.5453) < 0.8 ? 1 : 0;
+                float pop = (popX > 0 && popX < 1) ? popOn * (1 - popX) * (1 - popX) * sin(popX * 9.4) * (0.75 + 0.5 * hB) : 0;
+                // 1本だけのピョン：トゲごとに自分の間隔（みんなのピョンの1.3〜2.1倍）で、3回に1回くらい
+                float soloEvery = _SunPopEvery * (1.3 + 0.8 * hB);
+                float soloT = _Time.y + hA * soloEvery;
+                float soloI = floor(soloT / soloEvery);
+                float soloX = (soloT - soloI * soloEvery) / max(_SunPopTime * 0.8, 0.05);
+                float soloOn = frac(sin(soloI * 91.7 + spikeK * 13.1) * 43758.5453) < 0.35 ? 1 : 0;
+                pop += soloX < 1 ? soloOn * (1 - soloX) * (1 - soloX) * sin(soloX * 9.4) * 0.55 : 0;
+                // 撃たれた時（_UdonSunSquint）：トゲが1回ピョンと跳ねて戻る。トゲごとに 0〜0.12秒ずれて量も少しバラバラ
+                float sqPop = saturate(_UdonSunSquint);
+                float shotX = (_UdonSunPopT - hA * 0.12) / max(_UdonSunPopLen, 0.05);
+                float shotPop = (_UdonSunPopT >= 0 && shotX > 0 && shotX < 1) ? (1 - shotX) * (1 - shotX) * sin(shotX * 9.4) * _UdonSunPopAmt * (0.8 + 0.4 * hB) : 0;
+                pop = lerp(pop, shotPop, sqPop);
+                float r0 = R * (1.18 + _SunPopAmount * pop), r1 = R * (_SunRayLen + _SunPopAmount * pop * 1.15);
                 float a = (frac(phi / sector) - 0.5) * sector;      // トゲの中心線からの角度
                 float arc = abs(a) * rho;                           // 横方向の距離(度)
                 float tr = saturate((rho - r0) / (r1 - r0));

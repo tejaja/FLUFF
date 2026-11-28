@@ -30,7 +30,13 @@ public class FuwaSunFace : UdonSharpBehaviour
         VRCShader.SetGlobalFloat(_squintId, 0f);
         _popId = VRCShader.PropertyToID("_UdonSunPop");
         VRCShader.SetGlobalFloat(_popId, 0f);
+        // 2026-11-28 トゲごとにずらして跳ねる：空のシェーダーが「撃たれてからの秒数」でトゲごとに計算する
+        _popTId = VRCShader.PropertyToID("_UdonSunPopT");
+        VRCShader.SetGlobalFloat(_popTId, -1f);
+        VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonSunPopLen"), popTime);
+        VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonSunPopAmt"), popAmount);
     }
+    private int _popTId;
 
     // 撃った向きが太陽に当たっているか（撃った人のPCで判定）
     public bool IsAimAtSun(Vector3 aim)
@@ -59,5 +65,6 @@ public class FuwaSunFace : UdonSharpBehaviour
         float x = t / Mathf.Max(popTime, 0.05f);
         float pop = x < 1f ? (1f - x) * (1f - x) * Mathf.Sin(x * 9.4f) * popAmount : 0f;
         VRCShader.SetGlobalFloat(_popId, _active ? pop : 0f);
+        VRCShader.SetGlobalFloat(_popTId, _active ? t : -1f);
     }
 }
