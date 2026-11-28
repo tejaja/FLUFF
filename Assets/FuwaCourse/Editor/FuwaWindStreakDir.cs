@@ -24,6 +24,12 @@ public static class FuwaWindStreakDir
             var ps = r.GetComponent<ParticleSystem>();
             if (ps == null || !ps.trails.enabled || r.trailMaterial == null || !r.trailMaterial.shader.name.Contains("WindStreak")) continue;
             var baseMat = BaseOf(r.trailMaterial);
+            // 2026-11-28 てじゃ「いわのみち奥の追い風がぜんぜんみえない」：道に沿って吹くので後ろから見ると消えていた。追い風の中は走らないので正面消しなし（元のマテリアル）
+            if (NoHeadOnFade(r.transform))
+            {
+                if (r.trailMaterial != baseMat) { Undo.RecordObject(r, "wind dir"); r.trailMaterial = baseMat; EditorUtility.SetDirty(r); }
+                continue;
+            }
             Vector3 d = WindDir(ps);
             if (d.sqrMagnitude < 1e-6f) continue;
             // 10°ごとにまとめる
@@ -45,6 +51,13 @@ public static class FuwaWindStreakDir
         AssetDatabase.SaveAssets();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
         return "[風の筋] " + n + " 個の風に向きを入れた（マテリアル " + made.Count + " 個）";
+    }
+
+    static readonly string[] NoFadeParents = { "FuwaCourse2/Gimmick_Tailwind" };
+    static bool NoHeadOnFade(Transform t)
+    {
+        string p = t.name; for (var x = t.parent; x != null; x = x.parent) p = x.name + "/" + p;
+        return NoFadeParents.Any(s => p.StartsWith(s + "/"));
     }
 
     // Generated の向きつきマテリアルなら、元のマテリアル（名前の _y.. より前）
